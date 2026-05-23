@@ -135,17 +135,20 @@ const AuthForm = ({ type }) => {
             <label className="block text-sm font-medium text-color-primary mb-2">
               Account Type
             </label>
-            <select
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 text-sm  bg-white text-gray-700 outline-none transition"
-            >
+            <select className="w-full px-4 py-3 rounded-lg border border-gray-300 text-sm  bg-white text-gray-700 outline-none transition">
               <option value="">Select your role</option>
               <option value="student">Student</option>
               <option value="verifier">Verifier</option>
             </select>
-            <div className='mt-4'>
-              <p className="text-sm text-gray-500 ">To create an account as an university administrator, click</p>
+            <div className="mt-4">
+              <p className="text-sm text-gray-500 ">
+                To create an account as an university administrator, click
+              </p>
               <span>
-                <a href="/institution-signup" className="text-color-primary underline">
+                <a
+                  href="/UniversityEnrollment"
+                  className="text-color-primary underline"
+                >
                   University Admin Signup
                 </a>
               </span>

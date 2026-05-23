@@ -112,7 +112,7 @@ const SignupPage = () => {
               <p className="text-sm text-gray-300">
                 Already verified your institution?{" "}
                 <Link
-                  to="/institution-setup"
+                  to="/UniversityEnrollment"
                   className="text-blue-300 hover:text-blue-800 font-medium"
                 >
                   Contact us for enterprise setup

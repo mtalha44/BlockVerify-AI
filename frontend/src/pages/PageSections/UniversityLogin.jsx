@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, MessageCircle, HelpCircle, ArrowRight } from 'lucide-react';
+import { Mail, MessageCircle, HelpCircle, ArrowRight, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const UniversityLogin = () => {
@@ -18,13 +18,30 @@ const UniversityLogin = () => {
                 <label htmlFor="University-id" className="block text-md font-medium text-gray-700 mb-2">
                   Enter University ID 
                 </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <div className="relative group">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 group-focus-within:text-[#002677] transition-colors text-gray-400 h-5 w-5" />
                   <input
                     type="text"
                     id="University-id"
+                    required
+                    placeholder='UNI-343-PK'
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#002677] focus:border-[#002677] outline-none transition-colors"
                     
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
+                    autoComplete="username"
+                  />
+                </div>
+                <label  className="block text-md font-medium text-gray-700 mt-4 mb-2">
+                  Enter Password
+                </label>
+                <div className="relative group">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 group-focus-within:text-[#002677] transition-colors text-gray-400 h-5 w-5" />
+                  <input
+                    type="password"
+                    id="Password"
+                    placeholder='Enter your password'
+                    required
+                    
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#002677] focus:border-[#002677] outline-none transition-colors"
                     
                     autoComplete="username"
                   />
@@ -32,7 +49,7 @@ const UniversityLogin = () => {
             
                 
                 {/* Forgot ID Link */}
-                <div className="mt-8">
+                <div className="mt-3">
                   <Link 
                     to="/forgot-id" 
                     className="text-sm text-color-primary font-medium inline-flex items-center gap-1"
@@ -62,12 +79,9 @@ const UniversityLogin = () => {
             {/* Secondary Buttons */}
             <div className="mt-8">
               <button className="w-full custom-support-btn border  py-3 px-4 rounded-md font-medium transition-colors">
-                Create Your University ID
+                Apply for University Enrollment
               </button>
               
-              <button className="w-full mt-8 custom-support-btn py-3 px-4 rounded-md font-medium transition-colors">
-                Manage My University ID
-              </button>
             </div>
           </div>
 

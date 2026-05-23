@@ -43,19 +43,19 @@ const LoginPage = () => {
           <div className="bg-white w-full pt-4 pl-8 pr-6 pb-4 border-r border-gray-200 max-[485px]:pr-0 max-[485px]:pl-0 ">
             <BlockCertLogo />
           </div>
-          <div className=" w-full mt-8 mb-8 max-w-md max-[1115px]:p-3">
+          <div className=" w-full mt-8 mb-8 max-w-md max-[1115px]:p-3 ">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
               <AuthForm type="login" />
             </div>
           </div>
         </div>
-        <div className="flex flex-col justify-center bg-white pt-4 pb-4 pl-8 pr-4">
+        <div className="flex flex-col justify-center bg-white pt-4 pb-4 pl-8 pr-4 right-side">
           <div className="desc-part ">
             <div className="mb-7">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4 ">
+              <h2 className="text-3xl font-bold text-white mb-4 ">
                 Secure Certificate Verification
               </h2>
-              <p className="text-gray-600">
+              <p className="text-gray-400">
                 Use BlockVerify-AI to verify certificates securely with
                 blockchain technology.
               </p>
@@ -67,10 +67,10 @@ const LoginPage = () => {
                     {feature.icon}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900">
+                    <h4 className="font-semibold text-white">
                       {feature.title}
                     </h4>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-400">
                       {feature.description}
                     </p>
                   </div>

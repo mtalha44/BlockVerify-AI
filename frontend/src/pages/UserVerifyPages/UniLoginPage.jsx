@@ -93,7 +93,7 @@ const UniLoginPage =() => {
             <div>
               {portalFeatures.map((feature, index) => (
                 <div key={index} className="flex items-start mb-4 gap-3">
-                  <div className="bg-blue-50 p-2 rounded-lg">
+                  <div className="bg-blue-50 p-2 rounded-lg transition">
                     {feature.icon}
                   </div>
                   <div>
