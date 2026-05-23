@@ -17,6 +17,8 @@ import Layout, { LayoutWithFooter } from "./pages/Layout/Outlet";
 import CertificateUpload from "./pages/UploadCertificate/UploadPage";
 import ForgotPassword from "./pages/ForgetPasswordPages/ForgetPassword";
 import UniversityEnrollment from "./components/forms/UniAuthForm";
+import UniversityActivation from "./pages/UserVerifyPages/UniActivation";
+import ResetPassword from "./pages/ForgetPasswordPages/ResetPassword";
 
 function App() {
   return (
@@ -28,6 +30,8 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/institution-signin" element={<UniLoginPage />} />
           <Route path="/UniversityEnrollment" element={<UniversityEnrollment />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/UniversityActivation" element={<UniversityActivation />} />
         </Route>
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />

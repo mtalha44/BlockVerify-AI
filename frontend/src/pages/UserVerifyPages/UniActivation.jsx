@@ -13,11 +13,14 @@ import {
   Database,
   Check,
 } from "lucide-react";
+import BlockCertLogo from "../../components/Header/BlockCertLogo";
 
 const UniversityActivation = () => {
   // Step States
   const [isValidated, setIsValidated] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
+
+  const [isPassMatch, setPassNotMatch] = useState(false);
 
   // Form States
   const [universityId, setUniversityId] = useState("");
@@ -94,32 +97,16 @@ const UniversityActivation = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <img
-            src="/logo.png"
-            alt="logo"
-            className="w-10 h-10 object-contain"
-          />
-
-          <div>
-            <h2 className="text-xl font-bold text-[#002677]">BlockVerify-AI</h2>
-
-            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
-              Certificates Verification
-            </p>
-          </div>
-        </div>
-
+      <div className="bg-white  pt-4 pl-8 pr-6 pb-4 border-r flex justify-between border-gray-200 max-[485px]:pr-0 max-[485px]:pl-0 ">
+        <BlockCertLogo />
         <a
-          href="#university-login"
+          href="/institution-signin"
           className="flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#002677]"
         >
           <ArrowLeft className="size-4" />
           Back to Portal Login
         </a>
-      </header>
+      </div>
 
       {/* Main Section */}
       <div className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 flex flex-col lg:flex-row gap-8 items-center justify-center">
@@ -388,7 +375,6 @@ const UniversityActivation = () => {
           }
         </div>
       </div>
-
     </div>
   );
 };

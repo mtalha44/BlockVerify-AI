@@ -10,13 +10,18 @@ const UniversityLogin = () => {
       <div className="grow main-right-side flex items-center justify-center px-4 py-12">
         <div className="w-[75vh]">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-10 ">
-          <div className="mb-6">
-            <h1 className="text-3xl font-semibold text-color-primary mb-2">Sign In</h1>
-          </div>
+            <div className="mb-6">
+              <h1 className="text-3xl font-semibold text-color-primary mb-2">
+                Sign In
+              </h1>
+            </div>
             <form>
               <div className="mb-6">
-                <label htmlFor="University-id" className="block text-md font-medium text-gray-700 mb-2">
-                  Enter University ID 
+                <label
+                  htmlFor="University-id"
+                  className="block text-md font-medium text-gray-700 mb-2"
+                >
+                  Enter University ID
                 </label>
                 <div className="relative group">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 group-focus-within:text-[#002677] transition-colors text-gray-400 h-5 w-5" />
@@ -24,13 +29,12 @@ const UniversityLogin = () => {
                     type="text"
                     id="University-id"
                     required
-                    placeholder='UNI-343-PK'
+                    placeholder="UNI-343-PK"
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#002677] focus:border-[#002677] outline-none transition-colors"
-                    
                     autoComplete="username"
                   />
                 </div>
-                <label  className="block text-md font-medium text-gray-700 mt-4 mb-2">
+                <label className="block text-md font-medium text-gray-700 mt-4 mb-2">
                   Enter Password
                 </label>
                 <div className="relative group">
@@ -38,32 +42,28 @@ const UniversityLogin = () => {
                   <input
                     type="password"
                     id="Password"
-                    placeholder='Enter your password'
+                    placeholder="Enter your password"
                     required
-                    
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#002677] focus:border-[#002677] outline-none transition-colors"
-                    
                     autoComplete="username"
                   />
                 </div>
-            
-                
+
                 {/* Forgot ID Link */}
                 <div className="mt-3">
-                  <Link 
-                    to="/forgot-id" 
+                  <Link
+                    to="/forgot-password"
                     className="text-sm text-color-primary font-medium inline-flex items-center gap-1"
                   >
-                    Forgot Your University ID?
+                    Forgot Your University ID/Password?
                   </Link>
                 </div>
-                <div className='mt-8'>
-                    <button type="submit" className="custom-btn  w-full  gap-2">
+                <div className="mt-8">
+                  <button type="submit" className="custom-btn  w-full  gap-2">
                     Continue
                   </button>
                 </div>
               </div>
-
             </form>
 
             {/* Separator */}
@@ -81,34 +81,29 @@ const UniversityLogin = () => {
               <button className="w-full custom-support-btn border  py-3 px-4 rounded-md font-medium transition-colors">
                 Apply for University Enrollment
               </button>
-              
             </div>
           </div>
 
           {/* Help Links */}
           <div className="mt-8 flex bg-white p-4 rounded flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-sm">
-            <Link 
-              to="/support" 
+            <Link
+              to="/support"
               className="text-color-primary  transition-colors inline-flex items-center gap-2"
             >
               <MessageCircle className="h-4 w-4" />
               Chat with support
             </Link>
-            
-            <Link 
-              to="/help" 
+
+            <Link
+              to="/help"
               className="text-color-primary  transition-colors inline-flex items-center gap-2"
             >
               <HelpCircle className="h-4 w-4" />
               Help Center
             </Link>
           </div>
-
-          
         </div>
       </div>
-
-      
     </div>
   );
 };

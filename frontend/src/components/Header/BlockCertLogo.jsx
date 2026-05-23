@@ -10,7 +10,7 @@ const BlockCertLogo = () => {
                     <span className="text-xl font-bold text-color-primary">
                       BlockVerify-AI
                     </span>
-                    <span className="text-xs text-gray-600 font-medium">
+                    <span className="text-xs uppercase text-gray-600 font-medium">
                       Certificate Verification
                     </span>
                   </div>
