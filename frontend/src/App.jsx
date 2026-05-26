@@ -13,12 +13,15 @@ import Navbar from "./components/Header/Navbar";
 import FeaturesSection from "./components/HomePageSections/FeatureSection";
 import TrustAndStats from "./components/HomePageSections/TrustedUni";
 import HomePage from "./pages/HomePage/HomePage";
-import Layout, { LayoutWithFooter } from "./pages/Layout/Outlet";
+import Layout, { LayoutWithFooter, LayoutWithoutNavbar } from "./pages/Layout/Outlet";
 import CertificateUpload from "./pages/UploadCertificate/UploadPage";
 import ForgotPassword from "./pages/ForgetPasswordPages/ForgetPassword";
 import UniversityEnrollment from "./components/forms/UniAuthForm";
 import UniversityActivation from "./pages/UserVerifyPages/UniActivation";
 import ResetPassword from "./pages/ForgetPasswordPages/ResetPassword";
+import UniversityDashboard from "./dashboard/UniDashboard";
+import UserDashboard from "./dashboard/UserDashboard";
+import ProtectedRoute from "./ProtectedRout/ProtectedRoute";
 
 function App() {
   return (
@@ -37,7 +40,12 @@ function App() {
           <Route index element={<HomePage />} />
           <Route path="/uploadpage" element={<CertificateUpload />} />
         </Route>
+        <Route element={<LayoutWithoutNavbar />}>
+          <Route path="/user-dashboard" element={<ProtectedRoute><UserDashboard /> </ProtectedRoute>} />
+          <Route path="/university-dashboard" element={<UniversityDashboard />} />
+        </Route>
       </Routes>
+      
     </BrowserRouter>
   );
 }

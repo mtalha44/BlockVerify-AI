@@ -26,3 +26,14 @@ export const LayoutWithFooter = () => {
     </>
   );
 };
+
+export const LayoutWithoutNavbar = () => {
+  return (
+    <>
+      <main>
+        <Outlet />
+      </main>
+      <Footer />
+    </>
+  );
+};

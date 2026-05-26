@@ -79,7 +79,8 @@ const CertificateUpload = () => {
   return (
     <section>
       <div className="w-full max-w-4xl mx-auto p-4 sm:p-8">
-        <div className="text-center pt-18 mb-10">
+        
+        <div className="text-center mb-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

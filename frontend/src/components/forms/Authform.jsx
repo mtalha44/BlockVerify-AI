@@ -1,9 +1,76 @@
 import { useState } from 'react';
 import { Lock, Mail, User, Shield, Eye, EyeOff } from 'lucide-react';
 import BlockCertLogo from '../Header/BlockCertLogo';
+import API from '../../api/axios';
+import { useNavigate } from 'react-router-dom';
 
 const AuthForm = ({ type }) => {
   const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    fullName: "",
+    institution: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    console.log("API URL:", API.defaults.baseURL);
+    try {
+      if (type === "signup") {
+        if (formData.password !== formData.confirmPassword) {
+          return alert("Passwords do not match");
+        }
+
+        const res = await API.post("/auth/signup", {
+          fullName: formData.fullName,
+          institution: formData.institution,
+          email: formData.email,
+          password: formData.password,
+        });
+
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+
+        navigate("/user-dashboard");
+      }
+
+      if (type === "login") {
+        const res = await API.post("/auth/login", {
+          email: formData.email,
+          password: formData.password,
+        });
+
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+
+        navigate("/user-dashboard"); // FIXED
+
+        setFormData({
+          fullName: "",
+          institution: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+        });
+      }
+    } catch (error) {
+      console.log(error);
+
+      const message =
+        error?.response?.data?.message ||
+        error.message ||
+        "Something went wrong";
+
+      console.log(message);
+    }
+  };
   return (
     <div className="max-w-md w-full">
       <div className="text-center mb-8">
@@ -22,7 +89,7 @@ const AuthForm = ({ type }) => {
       </div>
 
       {/* Form */}
-      <form className="space-y-6">
+      <form className="space-y-6" onSubmit={handleSubmit}>
         {type === "signup" && (
           <div>
             <label className="block text-sm font-medium text-color-primary mb-2">
@@ -36,6 +103,8 @@ const AuthForm = ({ type }) => {
                 className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                 placeholder="John Smith"
                 required
+                value={formData.fullName}
+                onChange={handleChange}
               />
             </div>
           </div>
@@ -52,6 +121,8 @@ const AuthForm = ({ type }) => {
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               placeholder="University of Technology"
               required
+              value={formData.institution}
+              onChange={handleChange}
             />
           </div>
         )}
@@ -68,6 +139,8 @@ const AuthForm = ({ type }) => {
               className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               placeholder="user@example.com"
               required
+              value={formData.email}
+              onChange={handleChange}
             />
           </div>
         </div>
@@ -94,6 +167,8 @@ const AuthForm = ({ type }) => {
               className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               placeholder="••••••••"
               required
+              value={formData.password}
+              onChange={handleChange}
             />
             <button
               type="button"
@@ -125,21 +200,14 @@ const AuthForm = ({ type }) => {
                 className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                 placeholder="••••••••"
                 required
+                value={formData.confirmPassword}
+                onChange={handleChange}
               />
             </div>
           </div>
         )}
 
         {type === "signup" && (
-          <div>
-            <label className="block text-sm font-medium text-color-primary mb-2">
-              Account Type
-            </label>
-            <select className="w-full px-4 py-3 rounded-lg border border-gray-300 text-sm  bg-white text-gray-700 outline-none transition">
-              <option value="">Select your role</option>
-              <option value="student">Student</option>
-              <option value="verifier">Verifier</option>
-            </select>
             <div className="mt-4">
               <p className="text-sm text-gray-500 ">
                 To create an account as an university administrator, click
@@ -153,7 +221,6 @@ const AuthForm = ({ type }) => {
                 </a>
               </span>
             </div>
-          </div>
         )}
 
         {type === "login" && (

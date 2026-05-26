@@ -46,7 +46,17 @@ const LoginPage = () => {
           <div className=" w-full mt-8 mb-8 max-w-md max-[1115px]:p-3 ">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
               <AuthForm type="login" />
+              <p className="text-center pt-3 text-sm">
+                Want to Login as
+                <a
+                  href="/institution-signin"
+                  className="text-blue-500 pl-2 hover:underline"
+                >
+                  University Admin
+                </a>
+              </p>
             </div>
+            <div></div>
           </div>
         </div>
         <div className="flex flex-col justify-center bg-white pt-4 pb-4 pl-8 pr-4 right-side">
