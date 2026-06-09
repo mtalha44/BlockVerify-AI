@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Building2,
@@ -22,6 +23,7 @@ import {
   Files,
 } from "lucide-react";
 import BlockCertLogo from "../components/Header/BlockCertLogo";
+import API from "../api/axios";
 
 const UniversityDashboard = () => {
   // --- REAL-TIME DYNAMIC STATES ---
@@ -494,12 +496,9 @@ const UniversityDashboard = () => {
     const handleLogout = async () => {
       try {
         await API.post("/auth/logout");
-
+      } finally {
         localStorage.removeItem("user");
-
-        navigate("/login");
-      } catch (error) {
-        console.log(error);
+        navigate("/institution-signin", { replace: true });
       }
     };
 

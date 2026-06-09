@@ -1,15 +1,20 @@
-import { Building2, LogOut, LogOutIcon } from "lucide-react";
+import { Building2, LogOutIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import BlockCertLogo from "../components/Header/BlockCertLogo";
-import CertificateUpload from "../pages/UploadCertificate/UploadPage"
+import CertificateUpload from "../pages/UploadCertificate/UploadPage";
+import API from "../api/axios";
 
 const UserDashboard = () => {
+    const navigate = useNavigate();
 
-    const handleLogout = () => {
-        // Clear user session (e.g., remove token from localStorage)
-        localStorage.removeItem("authToken");
-        // Redirect to login page
-        window.location.href = "/login";
-      }
+    const handleLogout = async () => {
+        try {
+          await API.post("/auth/logout");
+        } finally {
+          localStorage.removeItem("user");
+          navigate("/login", { replace: true });
+        }
+      };
     return (
       <>
         <main>

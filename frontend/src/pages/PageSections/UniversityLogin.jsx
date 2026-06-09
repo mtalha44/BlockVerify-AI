@@ -1,8 +1,44 @@
 import React, { useState } from 'react';
-import { Mail, MessageCircle, HelpCircle, ArrowRight, Lock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Mail, MessageCircle, HelpCircle, Lock } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import API from '../../api/axios';
 
 const UniversityLogin = () => {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    universityId: "",
+    password: "",
+  });
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMessage("");
+
+    try {
+      const res = await API.post("/auth/university-login", {
+        universityId: formData.universityId,
+        password: formData.password,
+      });
+
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      navigate("/university-dashboard", { replace: true });
+    } catch (error) {
+      const message =
+        error?.response?.data?.message ||
+        error.message ||
+        "Something went wrong";
+
+      setErrorMessage(message);
+    }
+  };
   
   return (
     <div className=" right-side bg-gray-50 flex flex-col justify-center">
@@ -15,7 +51,7 @@ const UniversityLogin = () => {
                 Sign In
               </h1>
             </div>
-            <form>
+            <form onSubmit={handleSubmit}>
               <div className="mb-6">
                 <label
                   htmlFor="University-id"
@@ -28,10 +64,13 @@ const UniversityLogin = () => {
                   <input
                     type="text"
                     id="University-id"
+                    name="universityId"
                     required
                     placeholder="UNI-343-PK"
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#002677] focus:border-[#002677] outline-none transition-colors"
                     autoComplete="username"
+                    value={formData.universityId}
+                    onChange={handleChange}
                   />
                 </div>
                 <label className="block text-md font-medium text-gray-700 mt-4 mb-2">
@@ -42,10 +81,13 @@ const UniversityLogin = () => {
                   <input
                     type="password"
                     id="Password"
+                    name="password"
                     placeholder="Enter your password"
                     required
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#002677] focus:border-[#002677] outline-none transition-colors"
-                    autoComplete="username"
+                    autoComplete="current-password"
+                    value={formData.password}
+                    onChange={handleChange}
                   />
                 </div>
 
@@ -58,6 +100,11 @@ const UniversityLogin = () => {
                     Forgot Your University ID/Password?
                   </Link>
                 </div>
+                {errorMessage && (
+                  <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {errorMessage}
+                  </div>
+                )}
                 <div className="mt-8">
                   <button type="submit" className="custom-btn  w-full  gap-2">
                     Continue
@@ -78,9 +125,12 @@ const UniversityLogin = () => {
 
             {/* Secondary Buttons */}
             <div className="mt-8">
-              <button className="w-full custom-support-btn border  py-3 px-4 rounded-md font-medium transition-colors">
+              <Link
+                to="/UniversityEnrollment"
+                className="block text-center w-full custom-support-btn border py-3 px-4 rounded-md font-medium transition-colors"
+              >
                 Apply for University Enrollment
-              </button>
+              </Link>
             </div>
           </div>
 

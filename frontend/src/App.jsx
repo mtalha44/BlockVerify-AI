@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  BrowserRouter as Router,
   Routes,
   Route,
   BrowserRouter,
@@ -8,10 +7,6 @@ import {
 import LoginPage from "./pages/UserVerifyPages/LoginPage";
 import SignupPage from "./pages/UserVerifyPages/SignupPage";
 import UniLoginPage from "./pages/UserVerifyPages/UniLoginPage";
-import Footer from "./components/Footer/AuthFooter";
-import Navbar from "./components/Header/Navbar";
-import FeaturesSection from "./components/HomePageSections/FeatureSection";
-import TrustAndStats from "./components/HomePageSections/TrustedUni";
 import HomePage from "./pages/HomePage/HomePage";
 import Layout, { LayoutWithFooter, LayoutWithoutNavbar } from "./pages/Layout/Outlet";
 import CertificateUpload from "./pages/UploadCertificate/UploadPage";
@@ -41,11 +36,27 @@ function App() {
           <Route path="/uploadpage" element={<CertificateUpload />} />
         </Route>
         <Route element={<LayoutWithoutNavbar />}>
-          <Route path="/user-dashboard" element={<ProtectedRoute><UserDashboard /> </ProtectedRoute>} />
-          <Route path="/university-dashboard" element={<UniversityDashboard />} />
+          <Route
+            path="/user-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={["user", "admin"]}>
+                <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/university-dashboard"
+            element={
+              <ProtectedRoute
+                allowedRoles={["university", "admin"]}
+                redirectTo="/institution-signin"
+              >
+                <UniversityDashboard />
+              </ProtectedRoute>
+            }
+          />
         </Route>
       </Routes>
-      
     </BrowserRouter>
   );
 }

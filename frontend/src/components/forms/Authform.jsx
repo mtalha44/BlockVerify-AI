@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Lock, Mail, User, Shield, Eye, EyeOff } from 'lucide-react';
-import BlockCertLogo from '../Header/BlockCertLogo';
+import { Lock, Mail, User, Eye, EyeOff } from 'lucide-react';
 import API from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 
 const AuthForm = ({ type }) => {
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     fullName: "",
@@ -23,11 +23,13 @@ const AuthForm = ({ type }) => {
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("API URL:", API.defaults.baseURL);
+    setErrorMessage("");
+
     try {
       if (type === "signup") {
         if (formData.password !== formData.confirmPassword) {
-          return alert("Passwords do not match");
+          setErrorMessage("Passwords do not match");
+          return;
         }
 
         const res = await API.post("/auth/signup", {
@@ -39,7 +41,7 @@ const AuthForm = ({ type }) => {
 
         localStorage.setItem("user", JSON.stringify(res.data.user));
 
-        navigate("/user-dashboard");
+        navigate("/user-dashboard", { replace: true });
       }
 
       if (type === "login") {
@@ -50,7 +52,11 @@ const AuthForm = ({ type }) => {
 
         localStorage.setItem("user", JSON.stringify(res.data.user));
 
-        navigate("/user-dashboard"); // FIXED
+        if (res.data.user.role === "university") {
+          navigate("/university-dashboard", { replace: true });
+        } else {
+          navigate("/user-dashboard", { replace: true });
+        }
 
         setFormData({
           fullName: "",
@@ -61,14 +67,12 @@ const AuthForm = ({ type }) => {
         });
       }
     } catch (error) {
-      console.log(error);
-
       const message =
         error?.response?.data?.message ||
         error.message ||
         "Something went wrong";
 
-      console.log(message);
+      setErrorMessage(message);
     }
   };
   return (
@@ -237,6 +241,12 @@ const AuthForm = ({ type }) => {
             >
               Remember me for 30 days
             </label>
+          </div>
+        )}
+
+        {errorMessage && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {errorMessage}
           </div>
         )}
 

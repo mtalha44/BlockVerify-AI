@@ -13,6 +13,14 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    universityId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      uppercase: true,
+      trim: true,
+    },
+
     email: {
       type: String,
       required: true,
@@ -29,7 +37,14 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
+      enum: ["user", "university", "admin"],
       default: "user",
+    },
+
+    status: {
+      type: String,
+      enum: ["active", "pending", "suspended"],
+      default: "active",
     },
   },
   {
