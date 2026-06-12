@@ -1,3 +1,4 @@
+// frontend/src/pages/ForgetPasswordPages/ForgetPassword.jsx
 import { useState } from "react";
 import {
   Mail,
@@ -7,21 +8,47 @@ import {
   Shield,
   CheckCircle2,
   ChevronRight,
+  AlertCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import API from "../../api/axios";
 import BlockCertLogo from "../../components/Header/BlockCertLogo";
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
-
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setErrorMessage("");
 
-    // Normally you would call your backend API here
-    // For now, just show success message
-    setIsSubmitted(true);
+    try {
+      await API.post("/password/forgot-password", { email });
+      setIsSubmitted(true);
+    } catch (error) {
+      setErrorMessage(
+        error.response?.data?.message || "Failed to send reset email",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setLoading(true);
+    setErrorMessage("");
+    try {
+      await API.post("/password/forgot-password", { email });
+    } catch (error) {
+      setErrorMessage(
+        error.response?.data?.message || "Failed to send reset email",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const features = [
@@ -44,24 +71,21 @@ const ForgotPassword = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col">
-      <div className="bg-white w-full pt-4 pl-8 pr-6 pb-4 border-b border-gray-200 max-[485px]:pr-0 max-[485px]:pl-0 ">
+      <div className="bg-white w-full pt-4 pl-8 pr-6 pb-4 border-b border-gray-200 max-[485px]:pr-0 max-[485px]:pl-0">
         <BlockCertLogo />
       </div>
       <div className="flex-1 flex flex-col lg:flex-row">
         <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
           <div className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 sm:p-12">
-            {/* Show Form Before Submission */}
             {!isSubmitted ?
               <div>
                 <div className="text-center mb-8">
                   <div className="w-16 h-16 bg-slate-50 text-[#002677] rounded-2xl flex items-center justify-center mx-auto mb-6">
                     <Lock className="size-8" />
                   </div>
-
                   <h1 className="text-3xl font-bold text-[#002677] mb-3">
                     Forgot Password?
                   </h1>
-
                   <p className="text-slate-500 text-sm">
                     No worries, we'll send you reset instructions to your
                     registered email.
@@ -76,10 +100,8 @@ const ForgotPassword = () => {
                     >
                       Email Address
                     </label>
-
                     <div className="relative">
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
-
                       <input
                         id="email"
                         type="email"
@@ -92,11 +114,19 @@ const ForgotPassword = () => {
                     </div>
                   </div>
 
+                  {errorMessage && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                      <AlertCircle className="size-4" />
+                      {errorMessage}
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    className="w-full h-14 bg-[#002677] text-white font-bold rounded-xl hover:bg-[#001b55] transition-all flex items-center justify-center gap-2"
+                    disabled={loading}
+                    className="w-full h-14 bg-[#002677] text-white font-bold rounded-xl hover:bg-[#001b55] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    <span>Send Reset Link</span>
+                    {loading ? "Sending..." : "Send Reset Link"}
                     <ChevronRight className="size-5" />
                   </button>
                 </form>
@@ -111,37 +141,32 @@ const ForgotPassword = () => {
                   </Link>
                 </div>
               </div>
-            : /* Success Message */
-              <div className="text-center">
+            : <div className="text-center">
                 <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6">
                   <CheckCircle2 className="size-10" />
                 </div>
-
                 <h1 className="text-3xl font-bold text-[#002677] mb-3">
                   Check Your Email
                 </h1>
-
                 <p className="text-slate-500 text-sm mb-8 leading-relaxed">
                   We've sent a password reset link to
                   <br />
                   <span className="font-bold text-slate-700">{email}</span>
                 </p>
-
                 <div className="space-y-4">
                   <button
-                    onClick={() => setIsSubmitted(false)}
-                    className="w-full h-14 bg-[#002677] text-white font-bold rounded-xl hover:bg-[#001b55] transition-all"
+                    onClick={handleResend}
+                    disabled={loading}
+                    className="w-full h-14 bg-[#002677] text-white font-bold rounded-xl hover:bg-[#001b55] transition-all disabled:opacity-50"
                   >
-                    Open Email App
+                    {loading ? "Sending..." : "Resend Email"}
                   </button>
-
-                  <button
-                    onClick={() => setIsSubmitted(false)}
-                    className="w-full h-12 bg-white text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-all"
+                  <Link
+                    to="/login"
+                    className="block w-full h-12 bg-white text-slate-600 font-semibold rounded-xl hover:bg-slate-50 transition-all flex items-center justify-center"
                   >
-                    Didn't receive the email?
-                    <span className="text-[#002677]"> Click to resend</span>
-                  </button>
+                    Back to Login
+                  </Link>
                 </div>
               </div>
             }
@@ -153,27 +178,22 @@ const ForgotPassword = () => {
             <h2 className="text-4xl font-bold text-[#002677] mb-6 leading-tight">
               Secure Certificate Verification
             </h2>
-
             <p className="text-slate-500 text-lg mb-12">
               Use BlockVerify-AI to verify certificates securely with blockchain
               technology.
             </p>
-
             <div className="space-y-8">
               {features.map((feature, index) => {
                 const Icon = feature.icon;
-
                 return (
                   <div key={index} className="flex gap-5">
                     <div className="w-12 h-12 bg-blue-50 text-[#002677] rounded-xl flex items-center justify-center flex-shrink-0">
                       <Icon className="size-6" />
                     </div>
-
                     <div>
                       <h4 className="font-bold text-[#002677]">
                         {feature.title}
                       </h4>
-
                       <p className="text-sm text-slate-500">{feature.desc}</p>
                     </div>
                   </div>

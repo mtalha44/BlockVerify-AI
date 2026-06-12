@@ -1,4 +1,6 @@
+// backend/models/User.js
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 
 const userSchema = new mongoose.Schema(
   {
@@ -13,6 +15,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // Use 'universityId' (matches your MongoDB)
     universityId: {
       type: String,
       unique: true,
@@ -51,6 +54,22 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
+
+// Pre-save middleware to hash password
+userSchema.pre("save", async function () {
+  // Only hash password if it was modified
+  if (!this.isModified("password")) {
+    return;
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+});
+
+// Method to compare passwords
+userSchema.methods.comparePassword = async function (candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 const User = mongoose.model("User", userSchema);
 

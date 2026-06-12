@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Mail, MessageCircle, HelpCircle, Lock } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
-import API from '../../api/axios';
+// frontend/src/pages/PageSections/UniversityLogin.jsx
+import React, { useState } from "react";
+import { Mail, MessageCircle, HelpCircle, Lock } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import API from "../../api/axios";
 
 const UniversityLogin = () => {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ const UniversityLogin = () => {
     password: "",
   });
   const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -18,9 +20,15 @@ const UniversityLogin = () => {
     });
   };
 
+  // In UniversityLogin.jsx, update handleSubmit:
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
+    setLoading(true);
+
+    console.log("=== LOGIN ATTEMPT ===");
+    console.log("University ID being sent:", formData.universityId);
+    console.log("Password length:", formData.password.length);
 
     try {
       const res = await API.post("/auth/university-login", {
@@ -28,24 +36,28 @@ const UniversityLogin = () => {
         password: formData.password,
       });
 
+      console.log("Login success:", res.data);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       navigate("/university-dashboard", { replace: true });
     } catch (error) {
+      console.error("Login error:", error);
+      console.error("Error response:", error.response?.data);
       const message =
         error?.response?.data?.message ||
         error.message ||
-        "Something went wrong";
-
+        "Invalid University ID or password";
       setErrorMessage(message);
+    } finally {
+      setLoading(false);
     }
   };
-  
+
   return (
-    <div className=" right-side bg-gray-50 flex flex-col justify-center">
+    <div className="right-side bg-gray-50 flex flex-col justify-center">
       {/* Main Content */}
       <div className="grow main-right-side flex items-center justify-center px-4 py-12">
         <div className="w-[75vh]">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-10 ">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-10">
             <div className="mb-6">
               <h1 className="text-3xl font-semibold text-color-primary mb-2">
                 Sign In
@@ -100,14 +112,20 @@ const UniversityLogin = () => {
                     Forgot Your University ID/Password?
                   </Link>
                 </div>
+
                 {errorMessage && (
                   <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {errorMessage}
                   </div>
                 )}
+
                 <div className="mt-8">
-                  <button type="submit" className="custom-btn  w-full  gap-2">
-                    Continue
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="custom-btn w-full gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Signing in..." : "Continue"}
                   </button>
                 </div>
               </div>
@@ -138,7 +156,7 @@ const UniversityLogin = () => {
           <div className="mt-8 flex bg-white p-4 rounded flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-sm">
             <Link
               to="/support"
-              className="text-color-primary  transition-colors inline-flex items-center gap-2"
+              className="text-color-primary transition-colors inline-flex items-center gap-2"
             >
               <MessageCircle className="h-4 w-4" />
               Chat with support
@@ -146,7 +164,7 @@ const UniversityLogin = () => {
 
             <Link
               to="/help"
-              className="text-color-primary  transition-colors inline-flex items-center gap-2"
+              className="text-color-primary transition-colors inline-flex items-center gap-2"
             >
               <HelpCircle className="h-4 w-4" />
               Help Center
@@ -156,6 +174,6 @@ const UniversityLogin = () => {
       </div>
     </div>
   );
-};
+};;
 
 export default UniversityLogin;

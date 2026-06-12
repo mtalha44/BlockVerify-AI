@@ -1,3 +1,6 @@
+// frontend/src/components/forms/Authform.jsx
+// Replace the entire file with this corrected version
+
 import { useState } from 'react';
 import { Lock, Mail, User, Eye, EyeOff } from 'lucide-react';
 import API from '../../api/axios';
@@ -6,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 const AuthForm = ({ type }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     fullName: "",
@@ -21,14 +25,23 @@ const AuthForm = ({ type }) => {
       [e.target.name]: e.target.value,
     });
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
+    setLoading(true);
 
     try {
       if (type === "signup") {
         if (formData.password !== formData.confirmPassword) {
           setErrorMessage("Passwords do not match");
+          setLoading(false);
+          return;
+        }
+
+        if (formData.password.length < 8) {
+          setErrorMessage("Password must be at least 8 characters");
+          setLoading(false);
           return;
         }
 
@@ -40,7 +53,6 @@ const AuthForm = ({ type }) => {
         });
 
         localStorage.setItem("user", JSON.stringify(res.data.user));
-
         navigate("/user-dashboard", { replace: true });
       }
 
@@ -50,14 +62,30 @@ const AuthForm = ({ type }) => {
           password: formData.password,
         });
 
-        localStorage.setItem("user", JSON.stringify(res.data.user));
+        console.log("=== DEBUG ===");
+        console.log("Full user object:", res.data.user);
+        console.log("Role value:", res.data.user.role);
+        console.log("Role type:", typeof res.data.user.role);
+        console.log("Is admin?", res.data.user.role === "admin");
 
-        if (res.data.user.role === "university") {
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        localStorage.setItem("token", res.data.token);
+
+        // IMPORTANT: Check role and redirect accordingly
+        const userRole = res.data.user.role;
+
+        if (userRole === "admin") {
+          console.log("Redirecting to admin dashboard");
+          navigate("/admin", { replace: true });
+        } else if (userRole === "university") {
+          console.log("Redirecting to university dashboard");
           navigate("/university-dashboard", { replace: true });
         } else {
+          console.log("Redirecting to user dashboard");
           navigate("/user-dashboard", { replace: true });
         }
 
+        // Reset form
         setFormData({
           fullName: "",
           institution: "",
@@ -71,10 +99,12 @@ const AuthForm = ({ type }) => {
         error?.response?.data?.message ||
         error.message ||
         "Something went wrong";
-
       setErrorMessage(message);
+    } finally {
+      setLoading(false);
     }
   };
+
   return (
     <div className="max-w-md w-full">
       <div className="text-center mb-8">
@@ -92,7 +122,6 @@ const AuthForm = ({ type }) => {
         </div>
       </div>
 
-      {/* Form */}
       <form className="space-y-6" onSubmit={handleSubmit}>
         {type === "signup" && (
           <div>
@@ -212,19 +241,19 @@ const AuthForm = ({ type }) => {
         )}
 
         {type === "signup" && (
-            <div className="mt-4">
-              <p className="text-sm text-gray-500 ">
-                To create an account as an university administrator, click
-              </p>
-              <span>
-                <a
-                  href="/UniversityEnrollment"
-                  className="text-color-primary underline"
-                >
-                  University Admin Signup
-                </a>
-              </span>
-            </div>
+          <div className="mt-4">
+            <p className="text-sm text-gray-500 ">
+              To create an account as an university administrator, click
+            </p>
+            <span>
+              <a
+                href="/UniversityEnrollment"
+                className="text-color-primary underline"
+              >
+                University Admin Signup
+              </a>
+            </span>
+          </div>
         )}
 
         {type === "login" && (
@@ -252,9 +281,10 @@ const AuthForm = ({ type }) => {
 
         <button
           type="submit"
-          className="w-full custom-btn font-medium py-3 px-4 rounded-lg transition "
+          disabled={loading}
+          className="w-full custom-btn font-medium py-3 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {type === "login" ? "Sign In" : "Create Account"}
+          {loading ? "Please wait..." : (type === "login" ? "Sign In" : "Create Account")}
         </button>
 
         {type === "login" ?
@@ -276,7 +306,6 @@ const AuthForm = ({ type }) => {
         }
       </form>
 
-      {/* Terms for signup */}
       {type === "signup" && (
         <p className="text-xs text-gray-500 text-center mt-6">
           By creating an account, you agree to our{" "}

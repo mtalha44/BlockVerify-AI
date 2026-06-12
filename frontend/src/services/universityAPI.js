@@ -2,11 +2,20 @@ import axios from "axios";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
+// Create axios instance with default config
+const API = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true, // This sends cookies automatically
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
 export const universityAPI = {
-  // Submit enrollment application
+  // Submit enrollment application (multipart form data)
   submitEnrollment: async (formData) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/university/enroll`, formData, {
+      const response = await API.post("/university/enroll", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -18,13 +27,9 @@ export const universityAPI = {
   },
 
   // Get pending applications
-  getPendingApplications: async (token) => {
+  getPendingApplications: async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/university/pending`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await API.get("/university/pending");
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -32,13 +37,10 @@ export const universityAPI = {
   },
 
   // Get all applications
-  getAllApplications: async (token, status, page = 1, limit = 10) => {
+  getAllApplications: async (status, page = 1, limit = 10) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/university/applications`, {
+      const response = await API.get("/university/applications", {
         params: { status, page, limit },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
       return response.data;
     } catch (error) {
@@ -47,13 +49,9 @@ export const universityAPI = {
   },
 
   // Get application by ID
-  getApplicationById: async (id, token) => {
+  getApplicationById: async (id) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/university/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await API.get(`/university/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -61,17 +59,11 @@ export const universityAPI = {
   },
 
   // Approve application
-  approveApplication: async (id, adminNotes, token) => {
+  approveApplication: async (id, adminNotes) => {
     try {
-      const response = await axios.put(
-        `${API_BASE_URL}/university/${id}/approve`,
-        { adminNotes },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await API.put(`/university/${id}/approve`, {
+        adminNotes,
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -79,17 +71,11 @@ export const universityAPI = {
   },
 
   // Reject application
-  rejectApplication: async (id, rejectionReason, token) => {
+  rejectApplication: async (id, rejectionReason) => {
     try {
-      const response = await axios.put(
-        `${API_BASE_URL}/university/${id}/reject`,
-        { rejectionReason },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await API.put(`/university/${id}/reject`, {
+        rejectionReason,
+      });
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -97,13 +83,9 @@ export const universityAPI = {
   },
 
   // Get statistics
-  getStats: async (token) => {
+  getStats: async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/university/stats`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await API.get("/university/stats");
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -113,13 +95,9 @@ export const universityAPI = {
 
 export const adminAPI = {
   // Check admin status
-  checkAdminStatus: async (token) => {
+  checkAdminStatus: async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/admin/check-status`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await API.get("/admin/check-status");
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -127,16 +105,14 @@ export const adminAPI = {
   },
 
   // Get admin profile
-  getAdminProfile: async (token) => {
+  getAdminProfile: async () => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/admin/profile`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await API.get("/admin/profile");
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
     }
   },
 };
+
+export default API;

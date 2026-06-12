@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import University from "../models/University.js";
-import Admin from "../models/Admin.js";
+import User from "../models/User.js";
+import bcrypt from "bcryptjs";
 import {
   sendUniversityApprovalEmail,
   sendUniversityRejectionEmail,
@@ -9,11 +10,6 @@ import {
 // Generate unique institutional access ID
 const generateInstitutionalId = () => {
   return `INST-${Date.now()}-${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
-};
-
-// Generate credential package link token
-const generateCredentialToken = () => {
-  return crypto.randomBytes(32).toString("hex");
 };
 
 export const submitEnrollmentApplication = async (req, res, next) => {
@@ -52,17 +48,22 @@ export const submitEnrollmentApplication = async (req, res, next) => {
 
     if (existingUniversity) {
       return res.status(400).json({
-        message: "A university with this email, domain, or registration number already exists",
+        message:
+          "A university with this email, domain, or registration number already exists",
       });
     }
 
-    // Handle file uploads (assuming files are uploaded separately)
-    const accreditationFile = req.files?.accreditationFile?.[0]?.path || "";
-    const registrationFile = req.files?.registrationFile?.[0]?.path || "";
-    const authorityFile = req.files?.authorityFile?.[0]?.path || "";
+    // Handle file uploads (using multer)
+    const files = req.files;
+
+    const accreditationFile = files?.accreditationFile?.[0]?.path || "";
+    const registrationFile = files?.registrationFile?.[0]?.path || "";
+    const authorityFile = files?.authorityFile?.[0]?.path || "";
 
     if (!accreditationFile || !registrationFile || !authorityFile) {
-      return res.status(400).json({ message: "All required files must be uploaded" });
+      return res
+        .status(400)
+        .json({ message: "All required files must be uploaded" });
     }
 
     // Create new university application
@@ -87,7 +88,12 @@ export const submitEnrollmentApplication = async (req, res, next) => {
     res.status(201).json({
       message:
         "Enrollment application submitted successfully. Our team will review it within 24 hours.",
-      university,
+      university: {
+        id: university._id,
+        name: university.name,
+        email: university.email,
+        status: university.status,
+      },
     });
   } catch (error) {
     next(error);
@@ -130,6 +136,9 @@ export const approveApplication = async (req, res, next) => {
     const { id } = req.params;
     const { adminNotes } = req.body;
 
+    console.log("=== APPROVE APPLICATION STARTED ===");
+    console.log("Application ID:", id);
+
     const university = await University.findById(id);
 
     if (!university) {
@@ -137,41 +146,59 @@ export const approveApplication = async (req, res, next) => {
     }
 
     if (university.status !== "pending") {
-      return res.status(400).json({ message: "Only pending applications can be approved" });
+      return res
+        .status(400)
+        .json({ message: "Only pending applications can be approved" });
     }
 
-    // Generate credentials
+    // Generate institutional access ID
     const institutionalAccessId = generateInstitutionalId();
-    const credentialToken = generateCredentialToken();
-    const credentialLink = `${process.env.FRONTEND_URL}/credential-setup/${credentialToken}`;
+
+    // Create activation link
+    const activationLink = `${process.env.FRONTEND_URL}/UniversityActivation`;
 
     // Update university
     university.status = "verified";
     university.institutionalAccessId = institutionalAccessId;
-    university.credentialPackageLink = credentialToken;
-    university.credentialPackageLinkExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     university.verifiedAt = new Date();
     university.adminNotes = adminNotes || "";
 
     await university.save();
 
-    // Send approval email with credential package
+    // IMPORTANT: Use authorizedEmail (where the email should go)
+    const recipientEmail = university.authorizedEmail || university.email;
+    const universityName = university.name;
+    const contactName = university.primaryContactName;
+
+    console.log(`\n📧 SENDING APPROVAL EMAIL`);
+    console.log(`   To: ${recipientEmail}`);
+    console.log(`   University: ${universityName}`);
+    console.log(`   Contact: ${contactName}`);
+    console.log(`   Institutional ID: ${institutionalAccessId}`);
+    console.log(`   Activation Link: ${activationLink}`);
+
+    // Send approval email - make sure all 5 parameters are passed
     const emailResult = await sendUniversityApprovalEmail(
-      university.email,
-      credentialLink,
-      institutionalAccessId,
-      university.primaryContactName
+      recipientEmail, // 1. email address
+      activationLink, // 2. activation link
+      institutionalAccessId, // 3. institutional ID
+      contactName, // 4. primary contact name
+      universityName, // 5. university name
     );
 
     if (!emailResult.success) {
-      console.error("Failed to send approval email:", emailResult.error);
+      console.error("❌ Failed to send approval email:", emailResult.error);
+    } else {
+      console.log("✅ Approval email sent successfully to:", recipientEmail);
     }
 
     res.status(200).json({
-      message: "Application approved successfully. Credential package email sent.",
+      message:
+        "Application approved successfully. Activation email sent with University ID.",
       university,
     });
   } catch (error) {
+    console.error("Error in approveApplication:", error);
     next(error);
   }
 };
@@ -192,7 +219,9 @@ export const rejectApplication = async (req, res, next) => {
     }
 
     if (university.status !== "pending") {
-      return res.status(400).json({ message: "Only pending applications can be rejected" });
+      return res
+        .status(400)
+        .json({ message: "Only pending applications can be rejected" });
     }
 
     university.status = "rejected";
@@ -202,9 +231,9 @@ export const rejectApplication = async (req, res, next) => {
 
     // Send rejection email
     const emailResult = await sendUniversityRejectionEmail(
-      university.email,
+      university.authorizedEmail,
       rejectionReason,
-      university.primaryContactName
+      university.primaryContactName,
     );
 
     if (!emailResult.success) {
@@ -270,3 +299,5 @@ export const getApplicationStats = async (req, res, next) => {
     next(error);
   }
 };
+
+

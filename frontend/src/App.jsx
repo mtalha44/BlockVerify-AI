@@ -17,6 +17,7 @@ import ResetPassword from "./pages/ForgetPasswordPages/ResetPassword";
 import UniversityDashboard from "./dashboard/UniDashboard";
 import UserDashboard from "./dashboard/UserDashboard";
 import ProtectedRoute from "./ProtectedRout/ProtectedRoute";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
@@ -27,9 +28,17 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/institution-signin" element={<UniLoginPage />} />
-          <Route path="/UniversityEnrollment" element={<UniversityEnrollment />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/UniversityActivation" element={<UniversityActivation />} />
+          
+          <Route
+            path="/UniversityEnrollment"
+            element={<UniversityEnrollment />}
+          />
+          <Route path="/reset-password/:token?" element={<ResetPassword />} />
+          // In App.jsx, update the activation route:
+          <Route
+            path="/UniversityActivation/:token?"
+            element={<UniversityActivation />}
+          />
         </Route>
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
@@ -41,6 +50,14 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["user", "admin"]}>
                 <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={["admin"]} redirectTo="/login">
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />

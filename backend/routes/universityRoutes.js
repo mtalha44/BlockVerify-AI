@@ -1,3 +1,4 @@
+// routes/universityRoutes.js
 import express from "express";
 import {
   submitEnrollmentApplication,
@@ -9,11 +10,12 @@ import {
   getApplicationStats,
 } from "../controllers/universityController.js";
 import { authMiddleware } from "../middleware/auth.js";
+import { uploadUniversityFiles } from "../middleware/upload.js"; // ADD THIS LINE
 
 const router = express.Router();
 
-// Public routes
-router.post("/enroll", submitEnrollmentApplication);
+// Public routes - ADD THE upload middleware HERE
+router.post("/enroll", uploadUniversityFiles, submitEnrollmentApplication); // CHANGE THIS LINE
 
 // Admin routes (require authentication and authorization)
 router.get("/pending", authMiddleware, getPendingApplications);
