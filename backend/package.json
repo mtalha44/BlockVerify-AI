@@ -5,24 +5,33 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+      "ocr:start": "cd ocr-service && venv\\Scripts\\python main.py",
+    "ocr:setup": "python -m venv venv-ocr && source venv-ocr/bin/activate && pip install easyocr opencv-python",
+    "ocr:test": "node test-ocr.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@truffle/hdwallet-provider": "^2.1.15",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "ethers": "^6.16.0",
     "express": "^5.2.1",
+    "fs-extra": "^11.3.5",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
     "multer": "^2.1.1",
-    "nodemailer": "^8.0.10"
+    "nodemailer": "^8.0.10",
+    "sharp": "^0.35.1"
   },
   "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.2",
+    "hardhat": "^2.22.19",
     "nodemon": "^3.1.14"
   }
 }

@@ -37,13 +37,12 @@ const fileFilter = (req, file, cb) => {
   const extname = allowedTypes.test(
     path.extname(file.originalname).toLowerCase(),
   );
-  const mimetype = allowedTypes.test(file.mimetype);
 
-  if (mimetype && extname) {
+  if (extname) {
     return cb(null, true);
-  } else {
-    cb(new Error("Only PDF, JPG, JPEG, PNG, DOC, DOCX files are allowed"));
   }
+
+  cb(new Error("Only PDF, JPG, JPEG, PNG, DOC, DOCX files are allowed"));
 };
 
 // Create multer instance

@@ -1,15 +1,25 @@
 import crypto from "crypto";
 import University from "../models/University.js";
-import User from "../models/User.js";
-import bcrypt from "bcryptjs";
 import {
   sendUniversityApprovalEmail,
   sendUniversityRejectionEmail,
 } from "../utils/emailService.js";
 
-// Generate unique institutional access ID
 const generateInstitutionalId = () => {
   return `INST-${Date.now()}-${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
+};
+
+const normalizeDomain = (value) => {
+  try {
+    const url = value.startsWith("http") ? new URL(value) : new URL(`https://${value}`);
+    return url.hostname.replace(/^www\./, "").toLowerCase();
+  } catch {
+    return value
+      .replace(/^https?:\/\//, "")
+      .replace(/^www\./, "")
+      .split("/")[0]
+      .toLowerCase();
+  }
 };
 
 export const submitEnrollmentApplication = async (req, res, next) => {
@@ -26,7 +36,6 @@ export const submitEnrollmentApplication = async (req, res, next) => {
       primaryContactPhone,
     } = req.body;
 
-    // Validation
     if (
       !name ||
       !email ||
@@ -41,9 +50,17 @@ export const submitEnrollmentApplication = async (req, res, next) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Check for existing applications
+    const normalizedEmail = email.toLowerCase();
+    const normalizedAuthorizedEmail = authorizedEmail.toLowerCase();
+    const normalizedDomain = normalizeDomain(domain);
+
     const existingUniversity = await University.findOne({
-      $or: [{ email }, { domain }, { registrationNumber }],
+      $or: [
+        { email: normalizedEmail },
+        { authorizedEmail: normalizedAuthorizedEmail },
+        { domain: normalizedDomain },
+        { registrationNumber },
+      ],
     });
 
     if (existingUniversity) {
@@ -53,9 +70,7 @@ export const submitEnrollmentApplication = async (req, res, next) => {
       });
     }
 
-    // Handle file uploads (using multer)
     const files = req.files;
-
     const accreditationFile = files?.accreditationFile?.[0]?.path || "";
     const registrationFile = files?.registrationFile?.[0]?.path || "";
     const authorityFile = files?.authorityFile?.[0]?.path || "";
@@ -66,12 +81,11 @@ export const submitEnrollmentApplication = async (req, res, next) => {
         .json({ message: "All required files must be uploaded" });
     }
 
-    // Create new university application
-    const university = new University({
+    const university = await University.create({
       name,
-      email: email.toLowerCase(),
-      authorizedEmail: authorizedEmail.toLowerCase(),
-      domain: domain.toLowerCase(),
+      email: normalizedEmail,
+      authorizedEmail: normalizedAuthorizedEmail,
+      domain: normalizedDomain,
       country,
       city,
       registrationNumber,
@@ -82,8 +96,6 @@ export const submitEnrollmentApplication = async (req, res, next) => {
       primaryContactPhone,
       status: "pending",
     });
-
-    await university.save();
 
     res.status(201).json({
       message:
@@ -117,9 +129,7 @@ export const getPendingApplications = async (req, res, next) => {
 
 export const getApplicationById = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    const application = await University.findById(id);
+    const application = await University.findById(req.params.id);
 
     if (!application) {
       return res.status(404).json({ message: "Application not found" });
@@ -136,9 +146,6 @@ export const approveApplication = async (req, res, next) => {
     const { id } = req.params;
     const { adminNotes } = req.body;
 
-    console.log("=== APPROVE APPLICATION STARTED ===");
-    console.log("Application ID:", id);
-
     const university = await University.findById(id);
 
     if (!university) {
@@ -151,54 +158,45 @@ export const approveApplication = async (req, res, next) => {
         .json({ message: "Only pending applications can be approved" });
     }
 
-    // Generate institutional access ID
     const institutionalAccessId = generateInstitutionalId();
+    const activationToken = crypto.randomBytes(32).toString("hex");
+    const activationLink = `${process.env.FRONTEND_URL}/UniversityActivation/${activationToken}`;
 
-    // Create activation link
-    const activationLink = `${process.env.FRONTEND_URL}/UniversityActivation`;
-
-    // Update university
     university.status = "verified";
     university.institutionalAccessId = institutionalAccessId;
+    university.credentialPackageLink = activationToken;
+    university.credentialPackageLinkExpiry = new Date(
+      Date.now() + 7 * 24 * 60 * 60 * 1000,
+    );
     university.verifiedAt = new Date();
     university.adminNotes = adminNotes || "";
 
     await university.save();
 
-    // IMPORTANT: Use authorizedEmail (where the email should go)
-    const recipientEmail = university.authorizedEmail || university.email;
-    const universityName = university.name;
-    const contactName = university.primaryContactName;
-
-    console.log(`\n📧 SENDING APPROVAL EMAIL`);
-    console.log(`   To: ${recipientEmail}`);
-    console.log(`   University: ${universityName}`);
-    console.log(`   Contact: ${contactName}`);
-    console.log(`   Institutional ID: ${institutionalAccessId}`);
-    console.log(`   Activation Link: ${activationLink}`);
-
-    // Send approval email - make sure all 5 parameters are passed
     const emailResult = await sendUniversityApprovalEmail(
-      recipientEmail, // 1. email address
-      activationLink, // 2. activation link
-      institutionalAccessId, // 3. institutional ID
-      contactName, // 4. primary contact name
-      universityName, // 5. university name
+      university.authorizedEmail || university.email,
+      activationLink,
+      institutionalAccessId,
+      university.primaryContactName,
+      university.name,
     );
 
     if (!emailResult.success) {
-      console.error("❌ Failed to send approval email:", emailResult.error);
-    } else {
-      console.log("✅ Approval email sent successfully to:", recipientEmail);
+      console.error("Failed to send approval email:", emailResult.error);
     }
 
     res.status(200).json({
       message:
-        "Application approved successfully. Activation email sent with University ID.",
-      university,
+        "Application approved successfully. Credential package email sent to university.",
+      university: {
+        id: university._id,
+        name: university.name,
+        status: university.status,
+        institutionalAccessId: university.institutionalAccessId,
+        credentialPackageLinkExpiry: university.credentialPackageLinkExpiry,
+      },
     });
   } catch (error) {
-    console.error("Error in approveApplication:", error);
     next(error);
   }
 };
@@ -226,10 +224,8 @@ export const rejectApplication = async (req, res, next) => {
 
     university.status = "rejected";
     university.rejectionReason = rejectionReason;
-
     await university.save();
 
-    // Send rejection email
     const emailResult = await sendUniversityRejectionEmail(
       university.authorizedEmail,
       rejectionReason,
@@ -258,16 +254,16 @@ export const getAllApplications = async (req, res, next) => {
 
     const applications = await University.find(query)
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
 
     const total = await University.countDocuments(query);
 
     res.status(200).json({
       count: applications.length,
       total,
-      pages: Math.ceil(total / limit),
-      currentPage: page,
+      pages: Math.ceil(total / Number(limit)),
+      currentPage: Number(page),
       applications,
     });
   } catch (error) {
@@ -299,5 +295,3 @@ export const getApplicationStats = async (req, res, next) => {
     next(error);
   }
 };
-
-

@@ -24,6 +24,8 @@ export const forgotPassword = async (req, res, next) => {
     const resetToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
+    await PasswordReset.deleteMany({ userId: user._id, isUsed: false });
+
     // Save reset token to database
     const resetRecord = new PasswordReset({
       userId: user._id,
@@ -67,8 +69,8 @@ export const resetPassword = async (req, res, next) => {
       return res.status(400).json({ message: "Passwords do not match" });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    if (password.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
     }
 
     // Hash the provided token

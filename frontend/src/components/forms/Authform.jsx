@@ -1,6 +1,3 @@
-// frontend/src/components/forms/Authform.jsx
-// Replace the entire file with this corrected version
-
 import { useState } from 'react';
 import { Lock, Mail, User, Eye, EyeOff } from 'lucide-react';
 import API from '../../api/axios';
@@ -62,30 +59,18 @@ const AuthForm = ({ type }) => {
           password: formData.password,
         });
 
-        console.log("=== DEBUG ===");
-        console.log("Full user object:", res.data.user);
-        console.log("Role value:", res.data.user.role);
-        console.log("Role type:", typeof res.data.user.role);
-        console.log("Is admin?", res.data.user.role === "admin");
-
         localStorage.setItem("user", JSON.stringify(res.data.user));
-        localStorage.setItem("token", res.data.token);
 
-        // IMPORTANT: Check role and redirect accordingly
         const userRole = res.data.user.role;
 
         if (userRole === "admin") {
-          console.log("Redirecting to admin dashboard");
           navigate("/admin", { replace: true });
         } else if (userRole === "university") {
-          console.log("Redirecting to university dashboard");
           navigate("/university-dashboard", { replace: true });
         } else {
-          console.log("Redirecting to user dashboard");
           navigate("/user-dashboard", { replace: true });
         }
 
-        // Reset form
         setFormData({
           fullName: "",
           institution: "",

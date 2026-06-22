@@ -41,7 +41,7 @@ export default function ApplicationDetails({
     if (!filePath) return "#";
     // Extract filename from path
     const fileName = filePath.split("\\").pop().split("/").pop();
-    return `http://localhost:5000/uploads/${fileName}`;
+    return `http://localhost:5000/uploads/universities/${fileName}`;
   };
 
   return (

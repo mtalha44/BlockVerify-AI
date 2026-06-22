@@ -20,15 +20,10 @@ const UniversityLogin = () => {
     });
   };
 
-  // In UniversityLogin.jsx, update handleSubmit:
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage("");
     setLoading(true);
-
-    console.log("=== LOGIN ATTEMPT ===");
-    console.log("University ID being sent:", formData.universityId);
-    console.log("Password length:", formData.password.length);
 
     try {
       const res = await API.post("/auth/university-login", {
@@ -36,12 +31,9 @@ const UniversityLogin = () => {
         password: formData.password,
       });
 
-      console.log("Login success:", res.data);
       localStorage.setItem("user", JSON.stringify(res.data.user));
       navigate("/university-dashboard", { replace: true });
     } catch (error) {
-      console.error("Login error:", error);
-      console.error("Error response:", error.response?.data);
       const message =
         error?.response?.data?.message ||
         error.message ||
@@ -174,6 +166,6 @@ const UniversityLogin = () => {
       </div>
     </div>
   );
-};;
+};
 
 export default UniversityLogin;

@@ -9,20 +9,21 @@ import {
   getAllApplications,
   getApplicationStats,
 } from "../controllers/universityController.js";
-import { authMiddleware } from "../middleware/auth.js";
-import { uploadUniversityFiles } from "../middleware/upload.js"; // ADD THIS LINE
+import protect from "../middleware/authMiddleware.js";
+import authorize from "../middleware/roleMiddleware.js";
+import { uploadUniversityFiles } from "../middleware/upload.js";
 
 const router = express.Router();
 
-// Public routes - ADD THE upload middleware HERE
-router.post("/enroll", uploadUniversityFiles, submitEnrollmentApplication); // CHANGE THIS LINE
+// Public routes
+router.post("/enroll", uploadUniversityFiles, submitEnrollmentApplication);
 
 // Admin routes (require authentication and authorization)
-router.get("/pending", authMiddleware, getPendingApplications);
-router.get("/applications", authMiddleware, getAllApplications);
-router.get("/stats", authMiddleware, getApplicationStats);
-router.get("/:id", authMiddleware, getApplicationById);
-router.put("/:id/approve", authMiddleware, approveApplication);
-router.put("/:id/reject", authMiddleware, rejectApplication);
+router.get("/pending", protect, authorize("admin"), getPendingApplications);
+router.get("/applications", protect, authorize("admin"), getAllApplications);
+router.get("/stats", protect, authorize("admin"), getApplicationStats);
+router.get("/:id", protect, authorize("admin"), getApplicationById);
+router.put("/:id/approve", protect, authorize("admin"), approveApplication);
+router.put("/:id/reject", protect, authorize("admin"), rejectApplication);
 
 export default router;

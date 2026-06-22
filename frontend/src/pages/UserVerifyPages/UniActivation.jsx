@@ -1,6 +1,6 @@
 // frontend/src/pages/UserVerifyPages/UniActivation.jsx
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   Building2,
   KeyRound,
@@ -20,6 +20,7 @@ import BlockCertLogo from "../../components/Header/BlockCertLogo";
 
 const UniversityActivation = () => {
   const navigate = useNavigate();
+  const { token } = useParams();
 
   // Step States
   const [isValidated, setIsValidated] = useState(false);
@@ -35,6 +36,34 @@ const UniversityActivation = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [universityInfo, setUniversityInfo] = useState(null);
+
+  useEffect(() => {
+    const verifyToken = async () => {
+      if (!token) return;
+
+      setLoading(true);
+      setErrorMessage("");
+
+      try {
+        const res = await API.get(`/auth/verify-activation-token/${token}`);
+
+        if (res.data.valid) {
+          setUniversityInfo(res.data.university);
+          setUniversityId(res.data.university.institutionalAccessId);
+          setIsValidated(true);
+        }
+      } catch (err) {
+        setErrorMessage(
+          err.response?.data?.message ||
+            "Invalid or expired activation link. Please use your Institutional Access ID.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyToken();
+  }, [token]);
 
   // Verify University ID
   const handleVerifyID = async (e) => {
@@ -85,10 +114,16 @@ const UniversityActivation = () => {
     setErrorMessage("");
 
     try {
-      const res = await API.post("/auth/activate-university-by-id", {
-        universityId: universityId.toUpperCase(),
-        password: password,
-      });
+      const res =
+        token ?
+          await API.post("/auth/activate-university", {
+            token,
+            password,
+          })
+        : await API.post("/auth/activate-university-by-id", {
+            universityId: universityId.toUpperCase(),
+            password,
+          });
 
       localStorage.setItem("user", JSON.stringify(res.data.user));
       setIsActivated(true);
@@ -387,7 +422,9 @@ const UniversityActivation = () => {
                       onClick={() => {
                         setIsValidated(false);
                         setUniversityId("");
+                        setUniversityInfo(null);
                       }}
+                      disabled={Boolean(token)}
                       className="px-6 h-14 border border-slate-200 rounded-xl font-semibold hover:bg-slate-50 transition-all"
                     >
                       Back

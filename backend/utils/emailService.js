@@ -1,79 +1,73 @@
-// backend/utils/emailService.js
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-console.log("🔧 Initializing email service...");
-console.log("EMAIL_USER:", process.env.EMAIL_USER ? "✓ Set" : "✗ Missing");
-console.log(
-  "EMAIL_PASSWORD:",
-  process.env.EMAIL_PASSWORD ? "✓ Set" : "✗ Missing",
-);
+const hasEmailConfig = Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASSWORD);
 
-// Create transporter with more compatible settings
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false, // Use STARTTLS
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-  connectionTimeout: 10000,
-});
+const transporter =
+  hasEmailConfig ?
+    nodemailer.createTransport({
+      service: process.env.EMAIL_SERVICE || "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    })
+  : null;
 
-// Verify connection
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ Email verification failed:", error.message);
-    console.error("   Make sure:");
-    console.error("   1. App password is correct (16 characters, no spaces)");
-    console.error("   2. 2-Step Verification is ON in Google Account");
-    console.error("   3. App password is for 'Mail' app");
-  } else {
-    console.log("✅ Email service ready!");
+const sendMail = async ({ to, subject, html, devLink }) => {
+  if (!transporter) {
+    console.log("Email credentials are not configured. Development link:");
+    if (devLink) console.log(devLink);
+    return { success: true, skipped: true };
   }
-});
 
-export const sendResetPasswordEmail = async (email, resetLink, userName) => {
   try {
-    console.log(`📧 Sending reset email to: ${email}`);
-
-    const mailOptions = {
+    await transporter.sendMail({
       from: `"BlockVerify-AI" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "BlockVerify-AI: Password Reset Request",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: #002677; padding: 20px; text-align: center; color: white;">
-            <h2>BlockVerify-AI</h2>
-            <p>Password Reset Request</p>
-          </div>
-          <div style="padding: 20px;">
-            <p>Hello ${userName},</p>
-            <p>Click the button below to reset your password:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetLink}" style="background: #002677; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px;">Reset Password</a>
-            </div>
-            <p>This link expires in 1 hour.</p>
-            <hr>
-            <p style="font-size: 12px; color: #666;">If you didn't request this, please ignore this email.</p>
-          </div>
-        </div>
-      `,
-    };
+      to,
+      subject,
+      html,
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Reset email sent!");
     return { success: true };
   } catch (error) {
-    console.error("❌ Reset email error:", error.message);
     return { success: false, error: error.message };
   }
+};
+
+const baseTemplate = ({ title, subtitle, body }) => `
+  <div style="font-family: Arial, sans-serif; max-width: 620px; margin: 0 auto; border: 1px solid #e5e7eb;">
+    <div style="background: #002677; padding: 22px; text-align: center; color: white;">
+      <h2 style="margin: 0;">BlockVerify-AI</h2>
+      <p style="margin: 8px 0 0;">${subtitle}</p>
+    </div>
+    <div style="padding: 24px; color: #1f2937;">
+      <h3 style="margin-top: 0; color: #002677;">${title}</h3>
+      ${body}
+    </div>
+  </div>
+`;
+
+export const sendResetPasswordEmail = async (email, resetLink, userName) => {
+  return sendMail({
+    to: email,
+    subject: "BlockVerify-AI: Password Reset Request",
+    devLink: resetLink,
+    html: baseTemplate({
+      title: "Reset Your Password",
+      subtitle: "Password Reset Request",
+      body: `
+        <p>Hello ${userName || "there"},</p>
+        <p>Click the button below to reset your password. This link expires in 1 hour.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetLink}" style="background: #002677; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a>
+        </div>
+        <p style="font-size: 12px; color: #6b7280;">If you did not request this, you can safely ignore this email.</p>
+      `,
+    }),
+  });
 };
 
 export const sendUniversityApprovalEmail = async (
@@ -83,42 +77,28 @@ export const sendUniversityApprovalEmail = async (
   primaryContact,
   universityName,
 ) => {
-  try {
-    console.log(`📧 Sending approval email to: ${email}`);
-
-    const mailOptions = {
-      from: `"BlockVerify-AI" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "BlockVerify-AI: University Registration Approved",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: #002677; padding: 20px; text-align: center; color: white;">
-            <h2>BlockVerify-AI</h2>
-            <p>Registration Approved ✓</p>
-          </div>
-          <div style="padding: 20px;">
-            <p>Dear ${primaryContact},</p>
-            <p>Congratulations! <strong>${universityName}</strong> has been approved.</p>
-            <div style="background: #e8f5e9; padding: 15px; margin: 20px 0; border-left: 4px solid green;">
-              <strong>Your Institutional Access ID:</strong><br>
-              <code style="font-size: 16px;">${institutionalId}</code>
-            </div>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${activationLink}" style="background: #002677; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px;">Activate Account</a>
-            </div>
-            <p style="font-size: 12px; color: #666;">Keep this ID safe. You'll need it to activate your account.</p>
-          </div>
+  return sendMail({
+    to: email,
+    subject: "BlockVerify-AI: University Registration Approved",
+    devLink: activationLink,
+    html: baseTemplate({
+      title: "University Registration Approved",
+      subtitle: "Credential Package",
+      body: `
+        <p>Dear ${primaryContact || "University Admin"},</p>
+        <p>Your application for <strong>${universityName}</strong> has been approved.</p>
+        <div style="background: #ecfdf5; padding: 16px; margin: 20px 0; border-left: 4px solid #10b981;">
+          <p style="margin: 0 0 8px;"><strong>Institutional Access ID</strong></p>
+          <code style="font-size: 16px;">${institutionalId}</code>
         </div>
+        <p>Use the secure activation link below to create your university admin password.</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${activationLink}" style="background: #002677; color: white; padding: 12px 25px; text-decoration: none; border-radius: 6px; display: inline-block;">Activate University Account</a>
+        </div>
+        <p style="font-size: 12px; color: #6b7280;">This activation link expires in 7 days.</p>
       `,
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Approval email sent!");
-    return { success: true };
-  } catch (error) {
-    console.error("❌ Approval email error:", error.message);
-    return { success: false, error: error.message };
-  }
+    }),
+  });
 };
 
 export const sendUniversityRejectionEmail = async (
@@ -126,35 +106,20 @@ export const sendUniversityRejectionEmail = async (
   rejectionReason,
   primaryContact,
 ) => {
-  try {
-    const mailOptions = {
-      from: `"BlockVerify-AI" <${process.env.EMAIL_USER}>`,
-      to: email,
-      subject: "BlockVerify-AI: University Registration - Update Required",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: #002677; padding: 20px; text-align: center; color: white;">
-            <h2>BlockVerify-AI</h2>
-            <p>Application Update Required</p>
-          </div>
-          <div style="padding: 20px;">
-            <p>Dear ${primaryContact},</p>
-            <p>Your application needs additional information:</p>
-            <div style="background: #ffebee; padding: 15px; margin: 20px 0; border-left: 4px solid red;">
-              ${rejectionReason}
-            </div>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${process.env.FRONTEND_URL}/UniversityEnrollment" style="background: #002677; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px;">Update Application</a>
-            </div>
-          </div>
+  return sendMail({
+    to: email,
+    subject: "BlockVerify-AI: University Registration Update",
+    html: baseTemplate({
+      title: "Application Update Required",
+      subtitle: "University Registration Review",
+      body: `
+        <p>Dear ${primaryContact || "University Admin"},</p>
+        <p>Your application needs additional information before approval.</p>
+        <div style="background: #fef2f2; padding: 16px; margin: 20px 0; border-left: 4px solid #ef4444;">
+          ${rejectionReason}
         </div>
+        <p>Please submit a corrected application from the enrollment page.</p>
       `,
-    };
-
-    await transporter.sendMail(mailOptions);
-    return { success: true };
-  } catch (error) {
-    console.error("Rejection email error:", error);
-    return { success: false, error: error.message };
-  }
+    }),
+  });
 };

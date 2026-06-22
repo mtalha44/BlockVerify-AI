@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  bootstrapAdmin,
   makeAdmin,
   getAdminProfile,
   updateAdminProfile,
@@ -7,16 +8,19 @@ import {
   deactivateAdmin,
   checkAdminStatus,
 } from "../controllers/adminController.js";
-import { authMiddleware } from "../middleware/auth.js";
+import protect from "../middleware/authMiddleware.js";
+import authorize from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
+router.post("/bootstrap", bootstrapAdmin);
+
 // Admin routes
-router.post("/make-admin", authMiddleware, makeAdmin);
-router.get("/profile", authMiddleware, getAdminProfile);
-router.put("/profile", authMiddleware, updateAdminProfile);
-router.get("/check-status", authMiddleware, checkAdminStatus);
-router.get("/list", authMiddleware, getAllAdmins);
-router.delete("/:adminId", authMiddleware, deactivateAdmin);
+router.post("/make-admin", protect, authorize("admin"), makeAdmin);
+router.get("/profile", protect, authorize("admin"), getAdminProfile);
+router.put("/profile", protect, authorize("admin"), updateAdminProfile);
+router.get("/check-status", protect, authorize("admin"), checkAdminStatus);
+router.get("/list", protect, authorize("admin"), getAllAdmins);
+router.delete("/:adminId", protect, authorize("admin"), deactivateAdmin);
 
 export default router;

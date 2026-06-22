@@ -34,7 +34,6 @@ function App() {
             element={<UniversityEnrollment />}
           />
           <Route path="/reset-password/:token?" element={<ResetPassword />} />
-          // In App.jsx, update the activation route:
           <Route
             path="/UniversityActivation/:token?"
             element={<UniversityActivation />}

@@ -1,3 +1,4 @@
+import certificateRoutes from "./src/routes/certificateRoutes.js";
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -47,7 +48,10 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 // ============= ROUTES =============
+app.use("/api/certificates", certificateRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/password", passwordRoutes);
 app.use("/api/university", universityRoutes);
@@ -89,6 +93,7 @@ app.use((err, req, res, next) => {
   });
 });
 
+app.use("/api/certificates", certificateRoutes);
 // Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);

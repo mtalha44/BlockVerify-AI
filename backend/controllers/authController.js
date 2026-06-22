@@ -1,4 +1,3 @@
-// backend/controllers/authController.js
 import User from "../models/User.js";
 import University from "../models/University.js";
 import bcrypt from "bcryptjs";
@@ -25,13 +24,12 @@ const toAuthUser = (user) => ({
   id: user._id,
   fullName: user.fullName,
   institution: user.institution,
-  universityId: user.universityId, 
+  universityId: user.universityId,
   email: user.email,
   role: user.role,
   status: user.status,
 });
 
-// ============ REGISTER ============
 export const registerUser = async (req, res) => {
   try {
     const { fullName, institution, email, password } = req.body;
@@ -78,7 +76,6 @@ export const registerUser = async (req, res) => {
   }
 };
 
-// ============ LOGIN ============
 export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -125,13 +122,9 @@ export const loginUser = async (req, res) => {
   }
 };
 
-// ============ UNIVERSITY LOGIN ============
 export const loginUniversity = async (req, res) => {
   try {
     const { universityId, email, password } = req.body;
-
-    console.log("=== UNIVERSITY LOGIN ATTEMPT ===");
-    console.log("Received universityId:", universityId);
 
     if ((!universityId && !email) || !password) {
       return res.status(400).json({
@@ -139,25 +132,12 @@ export const loginUniversity = async (req, res) => {
       });
     }
 
-    // FIX: Search by 'universityId' (not 'institutionalAccessId')
-    // Because your users collection has field named 'universityId'
-    let query = {};
-    if (universityId) {
-      query = { universityId: universityId.toUpperCase() };
-    } else if (email) {
-      query = { email: email.toLowerCase() };
-    }
-
-    console.log("Query being used:", query);
+    const query =
+      universityId ?
+        { universityId: universityId.toUpperCase() }
+      : { email: email.toLowerCase() };
 
     const user = await User.findOne(query);
-
-    console.log("User found:", user ? "Yes" : "No");
-
-    if (user) {
-      console.log("User role:", user.role);
-      console.log("User universityId:", user.universityId);
-    }
 
     if (!user || !["university", "admin"].includes(user.role)) {
       return res.status(401).json({
@@ -172,7 +152,6 @@ export const loginUniversity = async (req, res) => {
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    console.log("Password match:", isMatch);
 
     if (!isMatch) {
       return res.status(401).json({
@@ -188,13 +167,12 @@ export const loginUniversity = async (req, res) => {
       user: toAuthUser(user),
     });
   } catch (error) {
-    console.error("University login error:", error);
     res.status(500).json({
       message: error.message,
     });
   }
 };
-// ============ LOGOUT ============
+
 export const logoutUser = async (req, res) => {
   res.cookie("token", "", {
     httpOnly: true,
@@ -208,17 +186,13 @@ export const logoutUser = async (req, res) => {
   });
 };
 
-// ============ GET CURRENT USER ============
 export const getMe = async (req, res) => {
   res.status(200).json({ user: toAuthUser(req.user) });
 };
 
-// ============ VERIFY UNIVERSITY ID (for activation) ============
 export const verifyUniversityId = async (req, res) => {
   try {
     const { universityId } = req.body;
-
-    console.log("🔍 Verifying University ID:", universityId);
 
     if (!universityId) {
       return res.status(400).json({ message: "University ID is required" });
@@ -228,8 +202,6 @@ export const verifyUniversityId = async (req, res) => {
       institutionalAccessId: universityId.toUpperCase(),
       status: "verified",
     });
-
-    console.log("Found university:", university);
 
     if (!university) {
       return res.status(400).json({
@@ -259,7 +231,6 @@ export const verifyUniversityId = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error in verifyUniversityId:", error);
     res.status(500).json({
       message: error.message,
       valid: false,
@@ -267,12 +238,9 @@ export const verifyUniversityId = async (req, res) => {
   }
 };
 
-// ============ ACTIVATE UNIVERSITY BY ID ============
 export const activateUniversityById = async (req, res) => {
   try {
     const { universityId, password } = req.body;
-
-    console.log("🔐 Activating University with ID:", universityId);
 
     if (!universityId || !password) {
       return res.status(400).json({
@@ -297,45 +265,47 @@ export const activateUniversityById = async (req, res) => {
       });
     }
 
-    let user = await User.findOne({ universityId: universityId.toUpperCase() });
+    const existingUser = await User.findOne({
+      $or: [
+        { universityId: university.institutionalAccessId },
+        { email: university.authorizedEmail },
+      ],
+    });
 
-    if (user) {
+    if (existingUser) {
       return res.status(400).json({
         message: "University account already activated. Please login.",
       });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    user = await User.create({
+    const user = await User.create({
       fullName: university.primaryContactName,
       institution: university.name,
       universityId: university.institutionalAccessId,
       email: university.authorizedEmail,
-      password: hashedPassword,
+      password,
       role: "university",
       status: "active",
     });
 
+    university.credentialPackageLink = null;
+    university.credentialPackageLinkExpiry = null;
+    await university.save();
+
     const authToken = generateToken(user._id);
     sendAuthCookie(res, authToken);
-
-    console.log("✅ University activated successfully:", user.email);
 
     res.status(200).json({
       message: "University account activated successfully",
       user: toAuthUser(user),
     });
   } catch (error) {
-    console.error("Error in activateUniversityById:", error);
     res.status(500).json({
       message: error.message,
     });
   }
 };
 
-// ============ VERIFY ACTIVATION TOKEN (for token-based activation - keep for compatibility) ============
 export const verifyActivationToken = async (req, res) => {
   try {
     const { token } = req.params;
@@ -353,6 +323,20 @@ export const verifyActivationToken = async (req, res) => {
       });
     }
 
+    const existingUser = await User.findOne({
+      $or: [
+        { universityId: university.institutionalAccessId },
+        { email: university.authorizedEmail },
+      ],
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "University account already activated. Please login instead.",
+        valid: false,
+      });
+    }
+
     res.status(200).json({
       message: "Token is valid",
       valid: true,
@@ -365,11 +349,11 @@ export const verifyActivationToken = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: error.message,
+      valid: false,
     });
   }
 };
 
-// ============ ACTIVATE UNIVERSITY (token-based - keep for compatibility) ============
 export const activateUniversity = async (req, res) => {
   try {
     const { token, password } = req.body;
@@ -398,28 +382,28 @@ export const activateUniversity = async (req, res) => {
       });
     }
 
-    let user = await User.findOne({ email: university.authorizedEmail });
+    const existingUser = await User.findOne({
+      $or: [
+        { universityId: university.institutionalAccessId },
+        { email: university.authorizedEmail },
+      ],
+    });
 
-    if (user && user.universityId) {
+    if (existingUser) {
       return res.status(400).json({
         message: "University account already activated",
       });
     }
 
-    if (!user) {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-
-      user = await User.create({
-        fullName: university.primaryContactName,
-        institution: university.name,
-        universityId: university.institutionalAccessId,
-        email: university.authorizedEmail,
-        password: hashedPassword,
-        role: "university",
-        status: "active",
-      });
-    }
+    const user = await User.create({
+      fullName: university.primaryContactName,
+      institution: university.name,
+      universityId: university.institutionalAccessId,
+      email: university.authorizedEmail,
+      password,
+      role: "university",
+      status: "active",
+    });
 
     university.credentialPackageLink = null;
     university.credentialPackageLinkExpiry = null;

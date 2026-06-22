@@ -128,93 +128,161 @@ const UniversityDashboard = () => {
   };
 
   // 1. Handle Certificate OCR Upload Integration
-  const handleCertificateUpload = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setCertificateFile(e.target.files[0]);
-    }
-  };
+  // frontend/src/dashboard/UniDashboard.jsx (Update the upload function)
 
-  const executeCertificateExtraction = () => {
-    if (!certificateFile) return;
+  // Find the handleCertificateUpload function and update it:
+const handleCertificateUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
 
-    setIsProcessingCert(true);
-    setCertProcessingStep("Scanning document layout...");
+  // Validate file type
+  const allowedTypes = [
+    "image/png",
+    "image/jpeg",
+    "image/jpg",
+    "application/pdf",
+  ];
+  if (!allowedTypes.includes(file.type)) {
+    alert("Only PNG, JPG, JPEG, and PDF files are allowed");
+    return;
+  }
 
-    // Elegant multi-stage logging simulation
-    setTimeout(() => {
+  // Validate file size (max 10MB)
+  if (file.size > 10 * 1024 * 1024) {
+    alert("File size must be less than 10MB");
+    return;
+  }
+
+  setCertificateFile(file);
+  setIsProcessingCert(true);
+  setCertProcessingStep("Uploading to server...");
+
+  const formData = new FormData();
+  formData.append("certificate", file);
+
+  try {
+    setCertProcessingStep("Processing with OCR...");
+
+    const response = await API.post("/certificates/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      timeout: 60000,
+    });
+
+    console.log("✅ Upload Response:", response.data);
+
+    if (response.data.success) {
+      const data = response.data.data;
       setCertProcessingStep(
-        "Running OCR engine (Extracting Roll No, Name, Degree)...",
+        "✅ Certificate verified and stored on blockchain!",
       );
+
+      // Add to transaction list
+      const newTx = {
+        id: `tx-${Date.now()}`,
+        student: data.studentName || "Unknown",
+        rollNumber: data.registrationNumber || "N/A",
+        hash: data.certificateHash || "0x...",
+        time: new Date().toLocaleTimeString(),
+        type: "Upload",
+        status: "Verified",
+        degree: data.degree || "N/A",
+        gpa: data.cgpa || "N/A",
+        gasUsed: "~45,000 Gas",
+        blockNumber: data.blockNumber || 0,
+      };
+      setTransactions((prev) => [newTx, ...prev]);
+
+      // Update stats
+      setTotalTxs((prev) => prev + 1);
+      setRecordsStored((prev) => prev + 1);
+      setVerifiedStudents((prev) => prev + 1);
+
+      // Clear file
+      setCertificateFile(null);
+
       setTimeout(() => {
-        setCertProcessingStep("Hashing transcript metadata with SHA-256...");
-        setTimeout(() => {
-          setCertProcessingStep(
-            "Broadcasting state root to simulated blockchain node...",
-          );
-          setTimeout(() => {
-            // Pick a randomized student from standard list or fallback to file name
-            const names = [
-              "Zainab Bibi",
-              "Adnan Malik",
-              "Fatima Sheikh",
-              "Haris Ahmed",
-              "Ayesha Munir",
-            ];
-            const degrees = [
-              "BS Artificial Intelligence",
-              "BS Data Science",
-              "BBA Digital Marketing",
-              "BS Cyber Security",
-            ];
-            const rollNumbers = [
-              "2023-AI-011",
-              "2023-DS-451",
-              "2023-MKT-301",
-              "2023-CY-088",
-            ];
+        setIsProcessingCert(false);
+        setCertProcessingStep("");
+      }, 2000);
+    } else {
+      setCertProcessingStep(
+        "❌ Error: " + (response.data.message || "Upload failed"),
+      );
+      setTimeout(() => setIsProcessingCert(false), 3000);
+    }
+  } catch (error) {
+    console.error("❌ Upload error:", error);
+    setCertProcessingStep(
+      "❌ Error: " + (error.response?.data?.message || error.message),
+    );
+    setTimeout(() => setIsProcessingCert(false), 3000);
+  }
+};
 
-            const randomName = names[Math.floor(Math.random() * names.length)];
-            const randomDegree =
-              degrees[Math.floor(Math.random() * degrees.length)];
-            const randomRoll =
-              rollNumbers[Math.floor(Math.random() * rollNumbers.length)];
-            const randomGPA = (3.1 + Math.random() * 0.9).toFixed(2);
+// 2. Execute Certificate Extraction - Use Real API
+const executeCertificateExtraction = async () => {
+  if (!certificateFile) return;
 
-            const txHash = generateSecuredHash(randomName);
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
+  setIsProcessingCert(true);
+  setCertProcessingStep("Sending to OCR service...");
 
-            const newTx = {
-              id: `tx-${Date.now()}`,
-              student: randomName,
-              rollNumber: randomRoll,
-              hash: txHash,
-              time: timeStr,
-              type: "Upload",
-              status: "Verified",
-              degree: randomDegree,
-              gpa: randomGPA,
-              gasUsed: `${Math.floor(Math.random() * 5000) + 40000} Gas`,
-              blockNumber: 15483000 + transactions.length,
-            };
+  const formData = new FormData();
+  formData.append("certificate", certificateFile);
 
-            // Prepend new tx and update counters
-            setTransactions((prev) => [newTx, ...prev]);
-            setTotalTxs((prev) => prev + 1);
-            setRecordsStored((prev) => prev + 1);
-            setVerifiedStudents((prev) => prev + 1);
+  try {
+    setCertProcessingStep("Processing with OCR...");
 
-            setIsProcessingCert(false);
-            setCertificateFile(null);
-            setCertProcessingStep("");
-          }, 800);
-        }, 800);
-      }, 800);
-    }, 800);
-  };
+    const response = await API.post("/certificates/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+      timeout: 60000,
+    });
+
+    if (response.data.success) {
+      const data = response.data.data;
+      setCertProcessingStep(
+        "✅ Certificate verified and stored on blockchain!",
+      );
+
+      // Add to transaction list
+      const newTx = {
+        id: `tx-${Date.now()}`,
+        student: data.studentName || "Unknown",
+        rollNumber: data.registrationNumber || "N/A",
+        hash: data.certificateHash || "0x...",
+        time: new Date().toLocaleTimeString(),
+        type: "Upload",
+        status: "Verified",
+        degree: data.degree || "N/A",
+        gpa: data.cgpa || "N/A",
+        gasUsed: "~45,000 Gas",
+        blockNumber: data.blockNumber || 0,
+      };
+      setTransactions((prev) => [newTx, ...prev]);
+      setTotalTxs((prev) => prev + 1);
+      setRecordsStored((prev) => prev + 1);
+      setVerifiedStudents((prev) => prev + 1);
+      setCertificateFile(null);
+
+      setTimeout(() => {
+        setIsProcessingCert(false);
+        setCertProcessingStep("");
+      }, 2000);
+    } else {
+      setCertProcessingStep("❌ Error: " + response.data.message);
+      setTimeout(() => setIsProcessingCert(false), 3000);
+    }
+  } catch (error) {
+    console.error("Extraction error:", error);
+    setCertProcessingStep(
+      "❌ Error: " + (error.response?.data?.message || error.message),
+    );
+    setTimeout(() => setIsProcessingCert(false), 3000);
+  }
+};
 
   // 2. Handle Excel Upload Integration
   const handleExcelUpload = (e) => {
@@ -493,14 +561,14 @@ const UniversityDashboard = () => {
   const navigate = useNavigate();
 
   // Safe logout by going back to login screen hash trigger
-    const handleLogout = async () => {
-      try {
-        await API.post("/auth/logout");
-      } finally {
-        localStorage.removeItem("user");
-        navigate("/institution-signin", { replace: true });
-      }
-    };
+  const handleLogout = async () => {
+    try {
+      await API.post("/auth/logout");
+    } finally {
+      localStorage.removeItem("user");
+      navigate("/institution-signin", { replace: true });
+    }
+  };
 
   // Search Filter implementation
   const filteredTransactions = transactions.filter((tx) => {
@@ -518,7 +586,7 @@ const UniversityDashboard = () => {
       {/* 1. Header */}
       <header className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
-          <div >
+          <div>
             <BlockCertLogo />
           </div>
 
@@ -1787,6 +1855,6 @@ const UniversityDashboard = () => {
       </AnimatePresence>
     </div>
   );
-};
+};;
 
 export default UniversityDashboard;
