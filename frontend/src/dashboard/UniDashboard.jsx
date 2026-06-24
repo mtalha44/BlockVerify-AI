@@ -55,6 +55,12 @@ const UniversityDashboard = () => {
   const [revokeProcessingStep, setRevokeProcessingStep] = useState("");
   const [isProcessingBulkDocs, setIsProcessingBulkDocs] = useState(false);
   const [bulkDocsProcessingStep, setBulkDocsProcessingStep] = useState("");
+  const [bulkProgress, setBulkProgress] = useState({
+    total: 0,
+    processed: 0,
+    succeeded: 0,
+    failed: 0,
+  });
 
   // Revocation context fields (dropdown selection to make it extremely easy to test)
   const [targetRollToRevoke, setTargetRollToRevoke] = useState("");
@@ -131,158 +137,158 @@ const UniversityDashboard = () => {
   // frontend/src/dashboard/UniDashboard.jsx (Update the upload function)
 
   // Find the handleCertificateUpload function and update it:
-const handleCertificateUpload = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+  const handleCertificateUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-  // Validate file type
-  const allowedTypes = [
-    "image/png",
-    "image/jpeg",
-    "image/jpg",
-    "application/pdf",
-  ];
-  if (!allowedTypes.includes(file.type)) {
-    alert("Only PNG, JPG, JPEG, and PDF files are allowed");
-    return;
-  }
+    // Validate file type
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "application/pdf",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Only PNG, JPG, JPEG, and PDF files are allowed");
+      return;
+    }
 
-  // Validate file size (max 10MB)
-  if (file.size > 10 * 1024 * 1024) {
-    alert("File size must be less than 10MB");
-    return;
-  }
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert("File size must be less than 10MB");
+      return;
+    }
 
-  setCertificateFile(file);
-  setIsProcessingCert(true);
-  setCertProcessingStep("Uploading to server...");
+    setCertificateFile(file);
+    setIsProcessingCert(true);
+    setCertProcessingStep("Uploading to server...");
 
-  const formData = new FormData();
-  formData.append("certificate", file);
+    const formData = new FormData();
+    formData.append("certificate", file);
 
-  try {
-    setCertProcessingStep("Processing with OCR...");
+    try {
+      setCertProcessingStep("Processing with OCR...");
 
-    const response = await API.post("/certificates/upload", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      timeout: 60000,
-    });
+      const response = await API.post("/certificates/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 60000,
+      });
 
-    console.log("✅ Upload Response:", response.data);
+      console.log("✅ Upload Response:", response.data);
 
-    if (response.data.success) {
-      const data = response.data.data;
+      if (response.data.success) {
+        const data = response.data.data;
+        setCertProcessingStep(
+          "✅ Certificate verified and stored on blockchain!",
+        );
+
+        // Add to transaction list
+        const newTx = {
+          id: `tx-${Date.now()}`,
+          student: data.studentName || "Unknown",
+          rollNumber: data.registrationNumber || "N/A",
+          hash: data.certificateHash || "0x...",
+          time: new Date().toLocaleTimeString(),
+          type: "Upload",
+          status: "Verified",
+          degree: data.degree || "N/A",
+          gpa: data.cgpa || "N/A",
+          gasUsed: "~45,000 Gas",
+          blockNumber: data.blockNumber || 0,
+        };
+        setTransactions((prev) => [newTx, ...prev]);
+
+        // Update stats
+        setTotalTxs((prev) => prev + 1);
+        setRecordsStored((prev) => prev + 1);
+        setVerifiedStudents((prev) => prev + 1);
+
+        // Clear file
+        setCertificateFile(null);
+
+        setTimeout(() => {
+          setIsProcessingCert(false);
+          setCertProcessingStep("");
+        }, 2000);
+      } else {
+        setCertProcessingStep(
+          "❌ Error: " + (response.data.message || "Upload failed"),
+        );
+        setTimeout(() => setIsProcessingCert(false), 3000);
+      }
+    } catch (error) {
+      console.error("❌ Upload error:", error);
       setCertProcessingStep(
-        "✅ Certificate verified and stored on blockchain!",
-      );
-
-      // Add to transaction list
-      const newTx = {
-        id: `tx-${Date.now()}`,
-        student: data.studentName || "Unknown",
-        rollNumber: data.registrationNumber || "N/A",
-        hash: data.certificateHash || "0x...",
-        time: new Date().toLocaleTimeString(),
-        type: "Upload",
-        status: "Verified",
-        degree: data.degree || "N/A",
-        gpa: data.cgpa || "N/A",
-        gasUsed: "~45,000 Gas",
-        blockNumber: data.blockNumber || 0,
-      };
-      setTransactions((prev) => [newTx, ...prev]);
-
-      // Update stats
-      setTotalTxs((prev) => prev + 1);
-      setRecordsStored((prev) => prev + 1);
-      setVerifiedStudents((prev) => prev + 1);
-
-      // Clear file
-      setCertificateFile(null);
-
-      setTimeout(() => {
-        setIsProcessingCert(false);
-        setCertProcessingStep("");
-      }, 2000);
-    } else {
-      setCertProcessingStep(
-        "❌ Error: " + (response.data.message || "Upload failed"),
+        "❌ Error: " + (error.response?.data?.message || error.message),
       );
       setTimeout(() => setIsProcessingCert(false), 3000);
     }
-  } catch (error) {
-    console.error("❌ Upload error:", error);
-    setCertProcessingStep(
-      "❌ Error: " + (error.response?.data?.message || error.message),
-    );
-    setTimeout(() => setIsProcessingCert(false), 3000);
-  }
-};
+  };
 
-// 2. Execute Certificate Extraction - Use Real API
-const executeCertificateExtraction = async () => {
-  if (!certificateFile) return;
+  // 2. Execute Certificate Extraction - Use Real API
+  const executeCertificateExtraction = async () => {
+    if (!certificateFile) return;
 
-  setIsProcessingCert(true);
-  setCertProcessingStep("Sending to OCR service...");
+    setIsProcessingCert(true);
+    setCertProcessingStep("Sending to OCR service...");
 
-  const formData = new FormData();
-  formData.append("certificate", certificateFile);
+    const formData = new FormData();
+    formData.append("certificate", certificateFile);
 
-  try {
-    setCertProcessingStep("Processing with OCR...");
+    try {
+      setCertProcessingStep("Processing with OCR...");
 
-    const response = await API.post("/certificates/upload", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-      timeout: 60000,
-    });
+      const response = await API.post("/certificates/upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 60000,
+      });
 
-    if (response.data.success) {
-      const data = response.data.data;
+      if (response.data.success) {
+        const data = response.data.data;
+        setCertProcessingStep(
+          "✅ Certificate verified and stored on blockchain!",
+        );
+
+        // Add to transaction list
+        const newTx = {
+          id: `tx-${Date.now()}`,
+          student: data.studentName || "Unknown",
+          rollNumber: data.registrationNumber || "N/A",
+          hash: data.certificateHash || "0x...",
+          time: new Date().toLocaleTimeString(),
+          type: "Upload",
+          status: "Verified",
+          degree: data.degree || "N/A",
+          gpa: data.cgpa || "N/A",
+          gasUsed: "~45,000 Gas",
+          blockNumber: data.blockNumber || 0,
+        };
+        setTransactions((prev) => [newTx, ...prev]);
+        setTotalTxs((prev) => prev + 1);
+        setRecordsStored((prev) => prev + 1);
+        setVerifiedStudents((prev) => prev + 1);
+        setCertificateFile(null);
+
+        setTimeout(() => {
+          setIsProcessingCert(false);
+          setCertProcessingStep("");
+        }, 2000);
+      } else {
+        setCertProcessingStep("❌ Error: " + response.data.message);
+        setTimeout(() => setIsProcessingCert(false), 3000);
+      }
+    } catch (error) {
+      console.error("Extraction error:", error);
       setCertProcessingStep(
-        "✅ Certificate verified and stored on blockchain!",
+        "❌ Error: " + (error.response?.data?.message || error.message),
       );
-
-      // Add to transaction list
-      const newTx = {
-        id: `tx-${Date.now()}`,
-        student: data.studentName || "Unknown",
-        rollNumber: data.registrationNumber || "N/A",
-        hash: data.certificateHash || "0x...",
-        time: new Date().toLocaleTimeString(),
-        type: "Upload",
-        status: "Verified",
-        degree: data.degree || "N/A",
-        gpa: data.cgpa || "N/A",
-        gasUsed: "~45,000 Gas",
-        blockNumber: data.blockNumber || 0,
-      };
-      setTransactions((prev) => [newTx, ...prev]);
-      setTotalTxs((prev) => prev + 1);
-      setRecordsStored((prev) => prev + 1);
-      setVerifiedStudents((prev) => prev + 1);
-      setCertificateFile(null);
-
-      setTimeout(() => {
-        setIsProcessingCert(false);
-        setCertProcessingStep("");
-      }, 2000);
-    } else {
-      setCertProcessingStep("❌ Error: " + response.data.message);
       setTimeout(() => setIsProcessingCert(false), 3000);
     }
-  } catch (error) {
-    console.error("Extraction error:", error);
-    setCertProcessingStep(
-      "❌ Error: " + (error.response?.data?.message || error.message),
-    );
-    setTimeout(() => setIsProcessingCert(false), 3000);
-  }
-};
+  };
 
   // 2. Handle Excel Upload Integration
   const handleExcelUpload = (e) => {
@@ -375,10 +381,46 @@ const executeCertificateExtraction = async () => {
   };
 
   // 2b. Handle Bulk Certificates PDF/PNG Selection & Process
+  // frontend/src/dashboard/UniDashboard.jsx
+  // Replace these functions with real API integration
+
+  // ============================================================
+  // BULK FILES UPLOAD - REAL API
+  // ============================================================
+
   const handleBulkFilesUpload = (e) => {
     if (e.target.files) {
       const selected = Array.from(e.target.files);
-      setBulkFiles((prev) => [...prev, ...selected]);
+      // Validate each file
+      const validFiles = selected.filter((file) => {
+        const allowedTypes = [
+          "image/png",
+          "image/jpeg",
+          "image/jpg",
+          "application/pdf",
+        ];
+        if (!allowedTypes.includes(file.type)) {
+          console.warn(`Skipping ${file.name}: Unsupported file type`);
+          return false;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          console.warn(`Skipping ${file.name}: File too large (>10MB)`);
+          return false;
+        }
+        return true;
+      });
+
+      if (validFiles.length === 0) {
+        alert(
+          "No valid files selected. Please upload PNG, JPG, JPEG, or PDF files under 10MB.",
+        );
+        return;
+      }
+
+      setBulkFiles((prev) => [...prev, ...validFiles]);
+      console.log(
+        `📁 Added ${validFiles.length} files. Total: ${bulkFiles.length + validFiles.length}`,
+      );
     }
   };
 
@@ -386,91 +428,190 @@ const executeCertificateExtraction = async () => {
     setBulkFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const executeBulkDocsProcess = () => {
-    if (bulkFiles.length === 0) return;
+  const executeBulkDocsProcess = async () => {
+    if (bulkFiles.length === 0) {
+      alert("Please select at least one file to upload.");
+      return;
+    }
 
     setIsProcessingBulkDocs(true);
-    setBulkDocsProcessingStep(
-      `Initializing sandbox pipeline for ${bulkFiles.length} uploaded certificate files...`,
-    );
+    setBulkDocsProcessingStep(`Preparing ${bulkFiles.length} files...`);
 
-    setTimeout(() => {
+    const formData = new FormData();
+    bulkFiles.forEach((file) => {
+      formData.append("certificates", file);
+    });
+
+    try {
       setBulkDocsProcessingStep(
-        "Executing parallel OCR image/PDF content mapping...",
+        `Uploading ${bulkFiles.length} files to server...`,
       );
-      setTimeout(() => {
+
+      const response = await API.post("/certificates/bulk-upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 300000, // 5 minutes timeout for large batches
+      });
+
+      console.log("✅ Bulk Upload Response:", response.data);
+
+      if (response.data.success) {
+        const results = response.data.results || [];
+        const errors = response.data.errors || [];
+
         setBulkDocsProcessingStep(
-          "Extracting roll numbers & metadata parameters...",
+          `✅ ${results.length} certificates processed successfully!`,
         );
-        setTimeout(() => {
+
+        // Add successful transactions to the list
+        results.forEach((cert) => {
+          const newTx = {
+            id: `tx-bulk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            student: cert.studentName || "Unknown",
+            rollNumber: cert.registrationNumber || "N/A",
+            hash: cert.certificateHash || "0x...",
+            time: new Date().toLocaleTimeString(),
+            type: "Bulk Import",
+            status: "Verified",
+            degree: cert.degree || "N/A",
+            gasUsed: "~45,000 Gas",
+            blockNumber: cert.blockNumber || 0,
+          };
+          setTransactions((prev) => [newTx, ...prev]);
+        });
+
+        // Update stats
+        const successCount = results.length;
+        if (successCount > 0) {
+          setTotalTxs((prev) => prev + successCount);
+          setRecordsStored((prev) => prev + successCount);
+          setVerifiedStudents((prev) => prev + successCount);
+        }
+
+        // Show errors if any
+        if (errors.length > 0) {
+          console.warn("⚠️ Some files failed:", errors);
           setBulkDocsProcessingStep(
-            `Generating cryptographic Merkle Leafs for each matching document root...`,
+            `⚠️ ${results.length} succeeded, ${errors.length} failed. Check console for details.`,
           );
-          setTimeout(() => {
-            const bulkCreatedRecords = bulkFiles.map((file, idx) => {
-              const cleanFileName = file.name.replace(/\.[^/.]+$/, "");
-              const nameTokens = cleanFileName.split(/[_\-\s]+/);
+        }
 
-              const capitalizedName = nameTokens
-                .map(
-                  (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase(),
-                )
-                .join(" ");
-
-              const names = [
-                "Zainab Bibi",
-                "Adnan Malik",
-                "Fatima Sheikh",
-                "Haris Ahmed",
-                "Ayesha Munir",
-              ];
-              const degrees = [
-                "BS Artificial Intelligence",
-                "BS Data Science",
-                "BBA Digital Marketing",
-                "BS Cyber Security",
-              ];
-
-              const recordName =
-                nameTokens.length > 1 ?
-                  capitalizedName
-                : names[idx % names.length];
-              const recordRoll = `2023-BL-${100 + idx + transactions.length}`;
-              const recordDegree = degrees[idx % degrees.length];
-              const recordGPA = (3.2 + ((idx * 0.15) % 0.8)).toFixed(2);
-
-              return {
-                id: `bulk-doc-${idx}-${Date.now()}`,
-                student: recordName,
-                rollNumber: recordRoll,
-                hash: generateSecuredHash(recordName),
-                time: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-                type: "Bulk Ingestion",
-                status: "Verified",
-                degree: recordDegree,
-                gpa: recordGPA,
-                gasUsed: `${Math.floor(Math.random() * 3000) + 38000} Gas`,
-                blockNumber: 15483300 + idx + transactions.length,
-                fileName: file.name,
-              };
-            });
-
-            setTransactions((prev) => [...bulkCreatedRecords, ...prev]);
-            setTotalTxs((prev) => prev + 1);
-            setRecordsStored((prev) => prev + bulkFiles.length);
-            setVerifiedStudents((prev) => prev + bulkFiles.length);
-
-            setIsProcessingBulkDocs(false);
-            setBulkFiles([]);
-            setBulkDocsProcessingStep("");
-          }, 800);
-        }, 800);
-      }, 800);
-    }, 800);
+        // Clear files after successful upload
+        setBulkFiles([]);
+      } else {
+        setBulkDocsProcessingStep(
+          "❌ Error: " + (response.data.message || "Upload failed"),
+        );
+      }
+    } catch (error) {
+      console.error("❌ Bulk upload error:", error);
+      setBulkDocsProcessingStep(
+        "❌ Error: " + (error.response?.data?.message || error.message),
+      );
+    } finally {
+      // Keep the processing state visible for a moment, then clear
+      setTimeout(() => {
+        setIsProcessingBulkDocs(false);
+        if (
+          !setBulkDocsProcessingStep.includes("✅") &&
+          !setBulkDocsProcessingStep.includes("❌")
+        ) {
+          setBulkDocsProcessingStep("");
+        }
+      }, 3000);
+    }
   };
+
+  // const removeBulkFile = (indexToRemove) => {
+  //   setBulkFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+  // };
+
+  // const executeBulkDocsProcess = () => {
+  //   if (bulkFiles.length === 0) return;
+
+  //   setIsProcessingBulkDocs(true);
+  //   setBulkDocsProcessingStep(
+  //     `Initializing sandbox pipeline for ${bulkFiles.length} uploaded certificate files...`,
+  //   );
+
+  //   setTimeout(() => {
+  //     setBulkDocsProcessingStep(
+  //       "Executing parallel OCR image/PDF content mapping...",
+  //     );
+  //     setTimeout(() => {
+  //       setBulkDocsProcessingStep(
+  //         "Extracting roll numbers & metadata parameters...",
+  //       );
+  //       setTimeout(() => {
+  //         setBulkDocsProcessingStep(
+  //           `Generating cryptographic Merkle Leafs for each matching document root...`,
+  //         );
+  //         setTimeout(() => {
+  //           const bulkCreatedRecords = bulkFiles.map((file, idx) => {
+  //             const cleanFileName = file.name.replace(/\.[^/.]+$/, "");
+  //             const nameTokens = cleanFileName.split(/[_\-\s]+/);
+
+  //             const capitalizedName = nameTokens
+  //               .map(
+  //                 (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase(),
+  //               )
+  //               .join(" ");
+
+  //             const names = [
+  //               "Zainab Bibi",
+  //               "Adnan Malik",
+  //               "Fatima Sheikh",
+  //               "Haris Ahmed",
+  //               "Ayesha Munir",
+  //             ];
+  //             const degrees = [
+  //               "BS Artificial Intelligence",
+  //               "BS Data Science",
+  //               "BBA Digital Marketing",
+  //               "BS Cyber Security",
+  //             ];
+
+  //             const recordName =
+  //               nameTokens.length > 1 ?
+  //                 capitalizedName
+  //               : names[idx % names.length];
+  //             const recordRoll = `2023-BL-${100 + idx + transactions.length}`;
+  //             const recordDegree = degrees[idx % degrees.length];
+  //             const recordGPA = (3.2 + ((idx * 0.15) % 0.8)).toFixed(2);
+
+  //             return {
+  //               id: `bulk-doc-${idx}-${Date.now()}`,
+  //               student: recordName,
+  //               rollNumber: recordRoll,
+  //               hash: generateSecuredHash(recordName),
+  //               time: new Date().toLocaleTimeString([], {
+  //                 hour: "2-digit",
+  //                 minute: "2-digit",
+  //               }),
+  //               type: "Bulk Ingestion",
+  //               status: "Verified",
+  //               degree: recordDegree,
+  //               gpa: recordGPA,
+  //               gasUsed: `${Math.floor(Math.random() * 3000) + 38000} Gas`,
+  //               blockNumber: 15483300 + idx + transactions.length,
+  //               fileName: file.name,
+  //             };
+  //           });
+
+  //           setTransactions((prev) => [...bulkCreatedRecords, ...prev]);
+  //           setTotalTxs((prev) => prev + 1);
+  //           setRecordsStored((prev) => prev + bulkFiles.length);
+  //           setVerifiedStudents((prev) => prev + bulkFiles.length);
+
+  //           setIsProcessingBulkDocs(false);
+  //           setBulkFiles([]);
+  //           setBulkDocsProcessingStep("");
+  //         }, 800);
+  //       }, 800);
+  //     }, 800);
+  //   }, 800);
+  // };
 
   // 3. Handle Revoke Certificate Action
   const handleRevokeUpload = (e) => {
@@ -1855,6 +1996,6 @@ const executeCertificateExtraction = async () => {
       </AnimatePresence>
     </div>
   );
-};;
+};;;;
 
 export default UniversityDashboard;

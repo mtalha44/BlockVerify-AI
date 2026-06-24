@@ -8,12 +8,14 @@ import crypto from "crypto";
 
 // Upload single certificate
 
+// backend/src/controllers/certificateController.js
+// Update the uploadSingleCertificate function - remove the certificateExists check
+
 export const uploadSingleCertificate = async (req, res) => {
   try {
     const { file } = req;
     const universityId = req.user?.universityId || req.user?.id;
 
-    // Check if file exists
     if (!file) {
       return res.status(400).json({
         success: false,
@@ -21,7 +23,6 @@ export const uploadSingleCertificate = async (req, res) => {
       });
     }
 
-    // Check if file exists on disk
     if (!fs.existsSync(file.path)) {
       return res.status(400).json({
         success: false,
@@ -54,7 +55,7 @@ export const uploadSingleCertificate = async (req, res) => {
       university_name: fields.university_name || req.user?.institution || "Unknown",
       session: fields.session || "",
       cgpa: fields.cgpa || "",
-      status: "Verified",
+      status: "verified",
       issuer: req.user?.institution || "Unknown",
       issued_at: new Date().toISOString(),
     };
@@ -72,22 +73,23 @@ export const uploadSingleCertificate = async (req, res) => {
     await blockchainConfig.initialize();
     const contract = blockchainConfig.getContract();
 
-    const exists = await contract.certificateExists(certificateHash);
-    if (exists) {
-      throw new Error("Certificate already exists on blockchain");
-    }
+    // IMPORTANT: Remove certificateExists check - it doesn't exist in your contract
+    // Instead, try to issue and handle duplicate error if it occurs
 
-    const tx = await contract.issueCertificate(
-      certificateHash,
-      certificateData.registration_number,
-      certificateData.student_name,
-      certificateData.degree,
-      `ipfs://${certificateHash}`
-    );
+const metadata = JSON.stringify({
+  registrationNumber: certificateData.registration_number,
+  studentName: certificateData.student_name,
+  degree: certificateData.degree,
+  session: certificateData.session,
+  cgpa: certificateData.cgpa,
+});
+
+const tx = await contract.storeCertificate("0x" + certificateHash, metadata);
 
     console.log(`📤 Tx sent: ${tx.hash}`);
     const receipt = await tx.wait();
     console.log(`✅ Confirmed: ${receipt.blockNumber}`);
+    console.log(`✅ Gas used: ${receipt.gasUsed.toString()}`);
 
     // Step 5: Save to Database
     const certificate = await Certificate.create({
@@ -111,7 +113,7 @@ export const uploadSingleCertificate = async (req, res) => {
       processingTime: ocrResult.processingTime || 0,
     });
 
-    // Step 6: Cleanup - Delete the uploaded file
+    // Step 6: Cleanup
     try {
       if (fs.existsSync(file.path)) {
         fs.unlinkSync(file.path);
@@ -166,6 +168,7 @@ export const uploadSingleCertificate = async (req, res) => {
 };
 
 // Verify certificate by hash
+// Update verifyCertificateByHash - remove methods that don't exist
 export const verifyCertificateByHash = async (req, res) => {
   try {
     const { hash } = req.params || req.body;
@@ -183,8 +186,16 @@ export const verifyCertificateByHash = async (req, res) => {
     await blockchainConfig.initialize();
     const contract = blockchainConfig.getContract();
 
+    // Use verifyCertificate (exists in your contract)
     const isValid = await contract.verifyCertificate(hash);
-    const details = await contract.getCertificate(hash);
+    
+    // Try to get details if the method exists
+    let details = null;
+    try {
+      details = await contract.getCertificate(hash);
+    } catch (detailError) {
+      console.log("ℹ️ getCertificate method not available, using basic verification");
+    }
 
     // Check database
     const certificate = await Certificate.findOne({ certificateHash: hash });
@@ -192,14 +203,14 @@ export const verifyCertificateByHash = async (req, res) => {
     res.status(200).json({
       success: true,
       isValid,
-      details: {
+      details: details ? {
         registrationNumber: details[0],
         studentName: details[1],
         degree: details[2],
         issueDate: new Date(Number(details[3]) * 1000),
         isValid: details[4],
         ipfsHash: details[5],
-      },
+      } : null,
       certificate: certificate || null,
     });
   } catch (error) {
@@ -317,6 +328,7 @@ export const getCertificates = async (req, res) => {
 };
 
 // Revoke certificate
+// Update revokeCertificate - use the method that exists
 export const revokeCertificate = async (req, res) => {
   try {
     const { hash } = req.params;
@@ -331,7 +343,7 @@ export const revokeCertificate = async (req, res) => {
 
     console.log(`🚫 Revoking certificate: ${hash}`);
 
-    // Check if certificate exists
+    // Check if certificate exists in database
     const certificate = await Certificate.findOne({ certificateHash: hash });
     if (!certificate) {
       return res.status(404).json({
@@ -351,6 +363,7 @@ export const revokeCertificate = async (req, res) => {
     await blockchainConfig.initialize();
     const contract = blockchainConfig.getContract();
 
+    // Use revokeCertificate (exists in your contract)
     const tx = await contract.revokeCertificate(hash);
     await tx.wait();
 
@@ -361,7 +374,7 @@ export const revokeCertificate = async (req, res) => {
         status: "revoked",
         revocationReason: reason || "No reason provided",
         revokedAt: new Date(),
-      },
+      }
     );
 
     res.status(200).json({
@@ -405,6 +418,9 @@ export const getCertificateById = async (req, res) => {
 };
 
 // Bulk upload certificates
+// backend/src/controllers/certificateController.js
+// Optimized bulk upload with parallel processing
+
 export const bulkUploadCertificates = async (req, res) => {
   try {
     const { files } = req;
@@ -417,53 +433,70 @@ export const bulkUploadCertificates = async (req, res) => {
       });
     }
 
+    console.log(`📁 Processing ${files.length} certificates in bulk...`);
+
+    // Process files in parallel with concurrency limit
+    const concurrencyLimit = 5; // Process 5 files at a time
     const results = [];
     const errors = [];
 
-    for (const file of files) {
-      try {
-        // Process each certificate with optimized OCR
-        const ocrResult = await easyOCRService.extractFields(file.path);
+    // Helper to process a single file
+    const processFile = async (file) => {
+      const fileResult = {
+        filename: file.originalname,
+        success: false,
+        error: null,
+        data: null,
+      };
 
+      try {
+        if (!fs.existsSync(file.path)) {
+          throw new Error("File not found on disk");
+        }
+
+        // Step 1: OCR
+        const ocrResult = await easyOCRService.extractFields(file.path);
         if (!ocrResult.success) {
-          throw new Error(ocrResult.error || "OCR processing failed");
+          throw new Error(ocrResult.error || "OCR failed");
         }
 
         const fields = ocrResult.fields;
 
+        // Step 2: Prepare data
         const certificateData = {
           student_name: fields.student_name || "Unknown",
           father_name: fields.father_name || "",
-          registration_number:
-            fields.registration_number || `REG-${Date.now()}`,
+          registration_number: fields.registration_number || `REG-${Date.now()}`,
           roll_number: fields.roll_number || "",
           degree: fields.degree || "Not Specified",
-          university_name:
-            fields.university_name || req.user?.institution || "Unknown",
+          university_name: fields.university_name || req.user?.institution || "Unknown",
           session: fields.session || "",
           cgpa: fields.cgpa || "",
           issuer: req.user?.institution || "Unknown",
-          issued_at: new Date().toISOString(),
         };
 
+        // Step 3: Generate Hash
         const certificateHash = crypto
           .createHash("sha256")
           .update(JSON.stringify(certificateData))
           .digest("hex");
 
+        // Step 4: Store on Blockchain
         await blockchainConfig.initialize();
         const contract = blockchainConfig.getContract();
 
-        const tx = await contract.issueCertificate(
-          certificateHash,
-          certificateData.registration_number,
-          certificateData.student_name,
-          certificateData.degree,
-          `ipfs://${certificateHash}`,
-        );
+        const metadata = JSON.stringify({
+          registrationNumber: certificateData.registration_number,
+          studentName: certificateData.student_name,
+          degree: certificateData.degree,
+          session: certificateData.session,
+          cgpa: certificateData.cgpa,
+        });
 
+        const tx = await contract.storeCertificate("0x" + certificateHash, metadata);
         const receipt = await tx.wait();
 
+        // Step 5: Save to Database
         const certificate = await Certificate.create({
           certificateHash,
           studentName: certificateData.student_name,
@@ -485,36 +518,88 @@ export const bulkUploadCertificates = async (req, res) => {
           processingTime: ocrResult.processingTime || 0,
         });
 
-        results.push(certificate);
-      } catch (error) {
-        errors.push({
-          file: file.originalname,
-          error: error.message,
-        });
-      }
+        // Success
+        fileResult.success = true;
+        fileResult.data = {
+          studentName: certificateData.student_name,
+          registrationNumber: certificateData.registration_number,
+          degree: certificateData.degree,
+          certificateHash: certificateHash,
+          transactionHash: receipt.hash,
+          blockNumber: receipt.blockNumber,
+        };
 
-      // Cleanup file
-      try {
+        // Cleanup file
         if (fs.existsSync(file.path)) {
           fs.unlinkSync(file.path);
         }
-      } catch (cleanupError) {
-        console.warn("File cleanup warning:", cleanupError.message);
+
+        return fileResult;
+
+      } catch (error) {
+        console.error(`❌ Error processing ${file.originalname}:`, error.message);
+        fileResult.error = error.message;
+        
+        // Cleanup on error
+        if (fs.existsSync(file.path)) {
+          try { fs.unlinkSync(file.path); } catch (e) {}
+        }
+        
+        return fileResult;
       }
+    };
+
+    // Process files in parallel with concurrency control
+    console.log(`🔄 Processing ${files.length} files with concurrency ${concurrencyLimit}...`);
+    
+    const fileQueue = [...files];
+    const processingPromises = [];
+
+    while (fileQueue.length > 0) {
+      const batch = fileQueue.splice(0, concurrencyLimit);
+      const batchPromises = batch.map(file => processFile(file));
+      const batchResults = await Promise.all(batchPromises);
+      
+      batchResults.forEach(result => {
+        if (result.success) {
+          results.push(result.data);
+        } else {
+          errors.push({
+            file: result.filename,
+            error: result.error,
+          });
+        }
+      });
+      
+      console.log(`📊 Progress: ${results.length + errors.length}/${files.length}`);
     }
+
+    console.log(`✅ Bulk upload complete: ${results.length} success, ${errors.length} errors`);
 
     res.status(200).json({
       success: true,
+      message: `Processed ${results.length} certificates successfully`,
       results,
       errors,
       totalProcessed: results.length,
       totalErrors: errors.length,
     });
+
   } catch (error) {
     console.error("Bulk upload error:", error);
+    
+    // Cleanup all files on major error
+    if (req.files) {
+      req.files.forEach(file => {
+        if (fs.existsSync(file.path)) {
+          try { fs.unlinkSync(file.path); } catch (e) {}
+        }
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Failed to process bulk upload",
     });
   }
 };

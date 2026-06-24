@@ -15,7 +15,7 @@ class CropExtractor:
         results = self.reader.readtext(
             image,
             detail=0,
-            paragraph=True,
+            paragraph=False,
             decoder="greedy"
         )
 
