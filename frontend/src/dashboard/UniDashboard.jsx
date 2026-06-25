@@ -428,9 +428,20 @@ const UniversityDashboard = () => {
     setBulkFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
+  // frontend/src/dashboard/UniDashboard.jsx
+  // Update the executeBulkDocsProcess function
+
   const executeBulkDocsProcess = async () => {
     if (bulkFiles.length === 0) {
       alert("Please select at least one file to upload.");
+      return;
+    }
+
+    // Max 50 files
+    if (bulkFiles.length > 50) {
+      alert(
+        "Maximum 50 files allowed per batch. Please split into smaller batches.",
+      );
       return;
     }
 
@@ -451,7 +462,7 @@ const UniversityDashboard = () => {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-        timeout: 300000, // 5 minutes timeout for large batches
+        timeout: 300000, // 5 minutes
       });
 
       console.log("✅ Bulk Upload Response:", response.data);
@@ -460,11 +471,19 @@ const UniversityDashboard = () => {
         const results = response.data.results || [];
         const errors = response.data.errors || [];
 
+        // Update progress
+        setBulkProgress({
+          total: bulkFiles.length,
+          processed: results.length + errors.length,
+          succeeded: results.length,
+          failed: errors.length,
+        });
+
         setBulkDocsProcessingStep(
           `✅ ${results.length} certificates processed successfully!`,
         );
 
-        // Add successful transactions to the list
+        // Add successful transactions
         results.forEach((cert) => {
           const newTx = {
             id: `tx-bulk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -489,16 +508,26 @@ const UniversityDashboard = () => {
           setVerifiedStudents((prev) => prev + successCount);
         }
 
-        // Show errors if any
+        // Show errors
         if (errors.length > 0) {
           console.warn("⚠️ Some files failed:", errors);
+          const errorMessages = errors
+            .map((e) => `${e.file}: ${e.error}`)
+            .join("\n");
           setBulkDocsProcessingStep(
-            `⚠️ ${results.length} succeeded, ${errors.length} failed. Check console for details.`,
+            `⚠️ ${results.length} succeeded, ${errors.length} failed.`,
           );
+          // Optional: Show alert with details
+          // alert(`Some files failed:\n${errorMessages}`);
         }
 
         // Clear files after successful upload
         setBulkFiles([]);
+
+        // Reset progress after delay
+        setTimeout(() => {
+          setBulkProgress({ total: 0, processed: 0, succeeded: 0, failed: 0 });
+        }, 5000);
       } else {
         setBulkDocsProcessingStep(
           "❌ Error: " + (response.data.message || "Upload failed"),
@@ -506,11 +535,18 @@ const UniversityDashboard = () => {
       }
     } catch (error) {
       console.error("❌ Bulk upload error:", error);
-      setBulkDocsProcessingStep(
-        "❌ Error: " + (error.response?.data?.message || error.message),
-      );
+
+      let errorMsg = error.response?.data?.message || error.message;
+
+      // Handle specific multer errors
+      if (errorMsg.includes("too many files")) {
+        errorMsg = "Too many files. Maximum 50 files per batch.";
+      } else if (errorMsg.includes("file too large")) {
+        errorMsg = "One or more files exceed the 10MB limit.";
+      }
+
+      setBulkDocsProcessingStep("❌ Error: " + errorMsg);
     } finally {
-      // Keep the processing state visible for a moment, then clear
       setTimeout(() => {
         setIsProcessingBulkDocs(false);
         if (
@@ -522,96 +558,6 @@ const UniversityDashboard = () => {
       }, 3000);
     }
   };
-
-  // const removeBulkFile = (indexToRemove) => {
-  //   setBulkFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
-  // };
-
-  // const executeBulkDocsProcess = () => {
-  //   if (bulkFiles.length === 0) return;
-
-  //   setIsProcessingBulkDocs(true);
-  //   setBulkDocsProcessingStep(
-  //     `Initializing sandbox pipeline for ${bulkFiles.length} uploaded certificate files...`,
-  //   );
-
-  //   setTimeout(() => {
-  //     setBulkDocsProcessingStep(
-  //       "Executing parallel OCR image/PDF content mapping...",
-  //     );
-  //     setTimeout(() => {
-  //       setBulkDocsProcessingStep(
-  //         "Extracting roll numbers & metadata parameters...",
-  //       );
-  //       setTimeout(() => {
-  //         setBulkDocsProcessingStep(
-  //           `Generating cryptographic Merkle Leafs for each matching document root...`,
-  //         );
-  //         setTimeout(() => {
-  //           const bulkCreatedRecords = bulkFiles.map((file, idx) => {
-  //             const cleanFileName = file.name.replace(/\.[^/.]+$/, "");
-  //             const nameTokens = cleanFileName.split(/[_\-\s]+/);
-
-  //             const capitalizedName = nameTokens
-  //               .map(
-  //                 (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase(),
-  //               )
-  //               .join(" ");
-
-  //             const names = [
-  //               "Zainab Bibi",
-  //               "Adnan Malik",
-  //               "Fatima Sheikh",
-  //               "Haris Ahmed",
-  //               "Ayesha Munir",
-  //             ];
-  //             const degrees = [
-  //               "BS Artificial Intelligence",
-  //               "BS Data Science",
-  //               "BBA Digital Marketing",
-  //               "BS Cyber Security",
-  //             ];
-
-  //             const recordName =
-  //               nameTokens.length > 1 ?
-  //                 capitalizedName
-  //               : names[idx % names.length];
-  //             const recordRoll = `2023-BL-${100 + idx + transactions.length}`;
-  //             const recordDegree = degrees[idx % degrees.length];
-  //             const recordGPA = (3.2 + ((idx * 0.15) % 0.8)).toFixed(2);
-
-  //             return {
-  //               id: `bulk-doc-${idx}-${Date.now()}`,
-  //               student: recordName,
-  //               rollNumber: recordRoll,
-  //               hash: generateSecuredHash(recordName),
-  //               time: new Date().toLocaleTimeString([], {
-  //                 hour: "2-digit",
-  //                 minute: "2-digit",
-  //               }),
-  //               type: "Bulk Ingestion",
-  //               status: "Verified",
-  //               degree: recordDegree,
-  //               gpa: recordGPA,
-  //               gasUsed: `${Math.floor(Math.random() * 3000) + 38000} Gas`,
-  //               blockNumber: 15483300 + idx + transactions.length,
-  //               fileName: file.name,
-  //             };
-  //           });
-
-  //           setTransactions((prev) => [...bulkCreatedRecords, ...prev]);
-  //           setTotalTxs((prev) => prev + 1);
-  //           setRecordsStored((prev) => prev + bulkFiles.length);
-  //           setVerifiedStudents((prev) => prev + bulkFiles.length);
-
-  //           setIsProcessingBulkDocs(false);
-  //           setBulkFiles([]);
-  //           setBulkDocsProcessingStep("");
-  //         }, 800);
-  //       }, 800);
-  //     }, 800);
-  //   }, 800);
-  // };
 
   // 3. Handle Revoke Certificate Action
   const handleRevokeUpload = (e) => {
@@ -1254,7 +1200,30 @@ const UniversityDashboard = () => {
                       )}
                     </AnimatePresence>
                   </div>
-
+                  {/* Bulk Progress Indicator */}
+                  {isProcessingBulkDocs && bulkProgress.total > 0 && (
+                    <div className="mt-4 p-4 bg-white rounded-xl border border-slate-200">
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="font-medium">Progress:</span>
+                        <span>
+                          {bulkProgress.succeeded} succeeded,{" "}
+                          {bulkProgress.failed} failed
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div
+                          className="bg-[#002677] h-2 rounded-full transition-all duration-300"
+                          style={{
+                            width: `${(bulkProgress.processed / bulkProgress.total) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">
+                        {bulkProgress.processed} of {bulkProgress.total}{" "}
+                        processed
+                      </p>
+                    </div>
+                  )}
                   <button
                     onClick={executeBulkDocsProcess}
                     disabled={bulkFiles.length === 0 || isProcessingBulkDocs}
@@ -1996,6 +1965,6 @@ const UniversityDashboard = () => {
       </AnimatePresence>
     </div>
   );
-};;;;
+};;;;;
 
 export default UniversityDashboard;

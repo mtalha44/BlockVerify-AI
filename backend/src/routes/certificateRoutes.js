@@ -1,4 +1,6 @@
 // backend/src/routes/certificateRoutes.js
+// Update the multer configuration
+
 import express from "express";
 import multer from "multer";
 import path from "path";
@@ -19,23 +21,19 @@ import protect from "../../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure upload directory exists - Use absolute path
+// Ensure upload directory exists
 const uploadDir = path.join(__dirname, "../../uploads/certificates");
-
-// Create directory if it doesn't exist
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
   console.log(`✅ Created uploads directory: ${uploadDir}`);
 }
 
-// Configure multer with better error handling
+// Configure multer with increased limits
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // Ensure directory exists before saving
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -44,7 +42,6 @@ const storage = multer.diskStorage({
   filename: function (req, file, cb) {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
-    // Clean filename: remove special characters and spaces
     const cleanName = file.originalname
       .replace(/[^a-zA-Z0-9.]/g, "_")
       .slice(0, 50);
@@ -69,24 +66,31 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
-    files: 1,
+    fileSize: 10 * 1024 * 1024, // 10MB per file
+    files: 50, // Allow up to 50 files in bulk upload
+    fieldSize: 10 * 1024 * 1024,
   },
   fileFilter: fileFilter,
 });
 
-// Routes
+// Single file upload
 router.post(
   "/upload",
   protect,
   (req, res, next) => {
-    // Single file upload with error handling
     upload.single("certificate")(req, res, (err) => {
       if (err instanceof multer.MulterError) {
         if (err.code === "FILE_TOO_LARGE") {
           return res.status(400).json({
             success: false,
             message: "File too large. Maximum size is 10MB.",
+          });
+        }
+        if (err.code === "LIMIT_UNEXPECTED_FILE") {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Unexpected field. Please use 'certificate' as field name.",
           });
         }
         return res.status(400).json({
@@ -105,26 +109,33 @@ router.post(
   uploadSingleCertificate,
 );
 
-router.post("/verify", protect, verifyCertificateByHash);
-
-router.get("/certificates", protect, getCertificates);
-
-router.get("/certificate/:id", protect, getCertificateById);
-
-router.get("/stats", protect, getCertificateStats);
-
-router.get("/dashboard-stats", protect, getDashboardStats);
-
-router.get("/search", protect, searchCertificates);
-
-router.post("/revoke/:hash", protect, revokeCertificate);
-
+// Bulk upload - with increased limits
 router.post(
   "/bulk-upload",
   protect,
   (req, res, next) => {
-    upload.array("certificates", 10)(req, res, (err) => {
+    upload.array("certificates", 50)(req, res, (err) => {
       if (err instanceof multer.MulterError) {
+        if (err.code === "FILE_TOO_LARGE") {
+          return res.status(400).json({
+            success: false,
+            message:
+              "One or more files are too large. Maximum size is 10MB per file.",
+          });
+        }
+        if (err.code === "LIMIT_FILE_COUNT") {
+          return res.status(400).json({
+            success: false,
+            message: "Too many files. Maximum is 50 files per batch.",
+          });
+        }
+        if (err.code === "LIMIT_UNEXPECTED_FILE") {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Unexpected field. Please use 'certificates' as field name.",
+          });
+        }
         return res.status(400).json({
           success: false,
           message: err.message,
@@ -140,5 +151,13 @@ router.post(
   },
   bulkUploadCertificates,
 );
+
+router.post("/verify", protect, verifyCertificateByHash);
+router.get("/certificates", protect, getCertificates);
+router.get("/certificate/:id", protect, getCertificateById);
+router.get("/stats", protect, getCertificateStats);
+router.get("/dashboard-stats", protect, getDashboardStats);
+router.get("/search", protect, searchCertificates);
+router.post("/revoke/:hash", protect, revokeCertificate);
 
 export default router;
