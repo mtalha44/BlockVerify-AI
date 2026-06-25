@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -45,6 +45,8 @@ const UniversityDashboard = () => {
 
   // Search filter
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   // Simulated Processing States for feedback animations
   const [isProcessingCert, setIsProcessingCert] = useState(false);
@@ -67,61 +69,7 @@ const UniversityDashboard = () => {
   const [revocationReasonInput, setRevocationReasonInput] = useState("");
 
   // Transaction History Feed
-  const [transactions, setTransactions] = useState([
-    {
-      id: "tx-1",
-      student: "Ali Raza",
-      rollNumber: "2023-CS-108",
-      hash: "0xA91F82BC72891ED489C92B1038DF229B01E2E4E5",
-      time: "10:32 AM",
-      type: "Upload",
-      status: "Verified",
-      degree: "BS Computer Science",
-      gpa: "3.85",
-      gasUsed: "42,108 Gas",
-      blockNumber: 15482921,
-    },
-    {
-      id: "tx-2",
-      student: "Sara Khan",
-      rollNumber: "2023-EE-042",
-      hash: "0xB82HG72JK9821DD37BC8012A32EA66C9010A9BE1",
-      time: "11:10 AM",
-      type: "Bulk Import",
-      status: "Verified",
-      degree: "BS Electrical Engineering",
-      gpa: "3.91",
-      gasUsed: "38,542 Gas",
-      blockNumber: 15482935,
-    },
-    {
-      id: "tx-3",
-      student: "Ahmed Bilal",
-      rollNumber: "2023-SE-120",
-      hash: "0xC728SHJ82911AF7419AA2B3135FE09C22C0928B3",
-      time: "01:45 PM",
-      type: "Upload",
-      status: "Verified",
-      degree: "BS Software Engineering",
-      gpa: "3.72",
-      gasUsed: "41,990 Gas",
-      blockNumber: 15482967,
-    },
-    {
-      id: "tx-4",
-      student: "M. Usman",
-      rollNumber: "2021-ME-056",
-      hash: "0xD192E83F0271BC826C6B217351EF772921C0E4B3",
-      time: "03:12 PM",
-      type: "Revocation",
-      status: "Revoked",
-      degree: "BS Mechanical Engineering",
-      gpa: "2.45",
-      revocationReason: "Falsified transcript GPA on enrollment records.",
-      gasUsed: "21,040 Gas",
-      blockNumber: 15482998,
-    },
-  ]);
+  const [transactions, setTransactions] = useState([]);
 
   // Helper: Generate a simulated cryptographic transactional hash
   const generateSecuredHash = (studentName) => {
@@ -132,6 +80,63 @@ const UniversityDashboard = () => {
     }
     return hash;
   };
+
+  // frontend/src/dashboard/UniDashboard.jsx
+  // ADD these new functions after the state declarations
+
+  // Fetch real transactions from backend
+  const fetchTransactions = async () => {
+    try {
+      const response = await API.get("/certificates/certificates", {
+        params: { limit: 10 },
+      });
+
+      if (response.data.success) {
+        const formattedTransactions = response.data.certificates.map(
+          (cert) => ({
+            id: cert._id || cert.certificateHash,
+            student: cert.studentName || "Unknown",
+            rollNumber: cert.registrationNumber || cert.rollNumber || "N/A",
+            hash: cert.certificateHash || "0x...",
+            time: new Date(
+              cert.createdAt || cert.issueDate,
+            ).toLocaleTimeString(),
+            type: cert.type || "Upload",
+            status: cert.status || "Verified",
+            degree: cert.degree || "N/A",
+            gpa: cert.cgpa || "N/A",
+            gasUsed: "~45,000 Gas",
+            blockNumber: cert.blockNumber || 0,
+            revocationReason: cert.revocationReason || null,
+          }),
+        );
+
+        setTransactions(formattedTransactions);
+      }
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+    }
+  };
+
+  // Fetch dashboard stats
+  const fetchDashboardStats = async () => {
+    try {
+      const response = await API.get("/certificates/dashboard-stats");
+      if (response.data.success) {
+        setTotalTxs(response.data.totalWriteTransactions || 0);
+        setRecordsStored(response.data.recordsStored || 0);
+        setVerifiedStudents(response.data.verifiedStudents || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch real data when dashboard loads
+    fetchTransactions();
+    fetchDashboardStats();
+  }, []);
 
   // 1. Handle Certificate OCR Upload Integration
   // frontend/src/dashboard/UniDashboard.jsx (Update the upload function)
@@ -566,83 +571,73 @@ const UniversityDashboard = () => {
     }
   };
 
-  const executeRevocation = () => {
-    // Requires either an uploaded revocation form file OR selected target
-    if (!revokeFile && !targetRollToRevoke) return;
+  // executeRevocation function
+
+  const executeRevocation = async () => {
+    if (!selectedStudent || !revocationReasonInput) {
+      alert("Please select a student and provide a reason for revocation.");
+      return;
+    }
 
     setIsProcessingRevoke(true);
-    setRevokeProcessingStep(
-      "Querying Blockchain block for address registry...",
-    );
+    setRevokeProcessingStep("Preparing revocation request...");
 
-    setTimeout(() => {
-      setRevokeProcessingStep(
-        "Updating Smart Contract status code to 'REVOKED' (0xEE)...",
+    try {
+      setRevokeProcessingStep("Sending to blockchain...");
+
+      const response = await API.post(
+        `/certificates/revoke/${selectedStudent.certificateHash}`,
+        {
+          reason: revocationReasonInput,
+        },
       );
-      setTimeout(() => {
-        setRevokeProcessingStep("Emitting revocation transaction hash...");
-        setTimeout(() => {
-          // Identify which student is being revoked (use selected student or pick a sample name from list to revoke)
-          const targetRoll = targetRollToRevoke || "2023-CS-108";
-          const reason =
-            revocationReasonInput ||
-            "Administrative request due to duplicate records.";
 
-          let studentToRevokeName = "Ali Raza";
+      if (response.data.success) {
+        setRevokeProcessingStep("✅ Certificate revoked successfully!");
 
-          // Modify active record status to Revoked dynamically
-          setTransactions((prev) => {
-            const index = prev.findIndex(
-              (item) =>
-                item.rollNumber === targetRoll ||
-                item.student.toLowerCase().includes(targetRoll.toLowerCase()),
-            );
-            if (index !== -1) {
-              studentToRevokeName = prev[index].student;
-              const updated = [...prev];
-              updated[index] = {
-                ...updated[index],
+        // Update the transaction in the list
+        setTransactions((prev) => {
+          const updated = prev.map((tx) => {
+            if (tx.hash === selectedStudent.certificateHash) {
+              return {
+                ...tx,
                 status: "Revoked",
-                revocationReason: reason,
+                revocationReason: revocationReasonInput,
                 type: "Revocation",
-                hash: generateSecuredHash(studentToRevokeName), // new revocation transaction hash
               };
-              return updated;
-            } else {
-              // Create a fallback revocation record if roll number didn't match
-              const fallbackTx = {
-                id: `revoke-${Date.now()}`,
-                student: "Ali Raza",
-                rollNumber: "2023-CS-108",
-                hash: generateSecuredHash("Ali Raza"),
-                time: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-                type: "Revocation",
-                status: "Revoked",
-                degree: "BS Computer Science",
-                gpa: "3.85",
-                revocationReason: reason,
-                gasUsed: "22,104 Gas",
-                blockNumber: 15483250,
-              };
-              return [fallbackTx, ...prev];
             }
+            return tx;
           });
+          return updated;
+        });
 
-          // Decrement verified, increment total transactions written
-          setVerifiedStudents((prev) => Math.max(0, prev - 1));
-          setTotalTxs((prev) => prev + 1);
+        // Update stats
+        setVerifiedStudents((prev) => Math.max(0, prev - 1));
+        setTotalTxs((prev) => prev + 1);
 
+        // Clear selections
+        setSelectedStudent(null);
+        setTargetRollToRevoke("");
+        setRevocationReasonInput("");
+        setSearchResults([]);
+
+        setTimeout(() => {
           setIsProcessingRevoke(false);
-          setRevokeFile(null);
-          setTargetRollToRevoke("");
-          setRevocationReasonInput("");
           setRevokeProcessingStep("");
-        }, 800);
-      }, 800);
-    }, 800);
+        }, 2000);
+      } else {
+        setRevokeProcessingStep(
+          "❌ Error: " + (response.data.message || "Revocation failed"),
+        );
+        setTimeout(() => setIsProcessingRevoke(false), 3000);
+      }
+    } catch (error) {
+      console.error("Revocation error:", error);
+      setRevokeProcessingStep(
+        "❌ Error: " + (error.response?.data?.message || error.message),
+      );
+      setTimeout(() => setIsProcessingRevoke(false), 3000);
+    }
   };
 
   const navigate = useNavigate();
@@ -1006,7 +1001,6 @@ const UniversityDashboard = () => {
                 </div>
               </motion.div>
             )}
-
             {activeTab === "bulk-docs" && (
               <motion.div
                 key="bulk-docs-tab"
@@ -1239,7 +1233,6 @@ const UniversityDashboard = () => {
                 </div>
               </motion.div>
             )}
-
             {activeTab === "batch" && (
               <motion.div
                 key="batch-tab"
@@ -1453,11 +1446,11 @@ const UniversityDashboard = () => {
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-slate-800">
-                            Identify Block Registry Address
+                            Search & Select Student
                           </p>
                           <p className="text-[11px] text-slate-400 mt-0.5">
-                            Choose the certificate hash from the currently
-                            deployed registry roll index.
+                            Search by Name or Registration Number to find the
+                            certificate.
                           </p>
                         </div>
                       </div>
@@ -1468,11 +1461,11 @@ const UniversityDashboard = () => {
                         </div>
                         <div>
                           <p className="text-xs font-semibold text-slate-800">
-                            Assign Certified Reason Code
+                            Assign Reason Code
                           </p>
                           <p className="text-[11px] text-slate-400 mt-0.5">
                             Document official reasons (e.g. metadata discrepancy
-                            or credit revision) to smart nodes.
+                            or credit revision).
                           </p>
                         </div>
                       </div>
@@ -1515,42 +1508,131 @@ const UniversityDashboard = () => {
                           Revocation Management Protocol
                         </h4>
                         <p className="text-xs text-slate-400 font-medium pb-2">
-                          Flag status indexes securely
+                          Search, select, and revoke certificates
                         </p>
                       </div>
                     </div>
 
                     <p className="text-xs sm:text-sm text-slate-500 mb-6 leading-relaxed">
-                      Fill the form indices or drop administrative decrees.
-                      Committed revisions write over the ledger immediately.
+                      Search for a student by Name or Registration Number.
+                      Select the certificate and provide a reason for
+                      revocation.
                     </p>
 
-                    {/* Quick Select Tool for easy testing */}
+                    {/* Search Section */}
                     <div className="space-y-4">
+                      {/* Search Input */}
                       <div>
                         <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-                          Select Roll / Name to Revoke
+                          Search Student by Name or Registration Number
                         </label>
-                        <select
-                          value={targetRollToRevoke}
-                          onChange={(e) =>
-                            setTargetRollToRevoke(e.target.value)
-                          }
-                          className="w-full h-11 px-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium outline-none text-slate-700 focus:border-red-400 focus:ring-1 focus:ring-red-100 transition-all focus:bg-white"
-                        >
-                          <option value="">
-                            -- Choose student from active ledger --
-                          </option>
-                          {transactions
-                            .filter((tx) => tx.status === "Verified")
-                            .map((tx) => (
-                              <option key={tx.id} value={tx.rollNumber}>
-                                {tx.student} ({tx.rollNumber})
-                              </option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Type name or registration number..."
+                            value={targetRollToRevoke}
+                            onChange={async (e) => {
+                              const value = e.target.value;
+                              setTargetRollToRevoke(value);
+
+                              // Search for students
+                              if (value.length >= 2) {
+                                try {
+                                  const response = await API.get(
+                                    `/certificates/search-students?query=${encodeURIComponent(value)}`,
+                                  );
+                                  if (response.data.success) {
+                                    setSearchResults(response.data.students);
+                                  }
+                                } catch (error) {
+                                  console.error("Search error:", error);
+                                }
+                              } else {
+                                setSearchResults([]);
+                              }
+                            }}
+                            className="w-full pl-9 pr-4 h-11 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none text-slate-700 focus:border-red-400 focus:ring-1 focus:ring-red-100 focus:bg-white transition-all"
+                          />
+                          {targetRollToRevoke && (
+                            <button
+                              onClick={() => {
+                                setTargetRollToRevoke("");
+                                setSearchResults([]);
+                                setSelectedStudent(null);
+                              }}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
+                      {/* Search Results */}
+                      {searchResults.length > 0 && (
+                        <div className="border border-slate-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+                          <div className="bg-slate-50 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                            Found {searchResults.length} student(s)
+                          </div>
+                          {searchResults.map((student) => (
+                            <div
+                              key={student._id}
+                              onClick={() => {
+                                setSelectedStudent(student);
+                                setTargetRollToRevoke(
+                                  `${student.studentName} (${student.registrationNumber})`,
+                                );
+                                setSearchResults([]);
+                              }}
+                              className="px-4 py-3 hover:bg-red-50 cursor-pointer transition-colors border-b border-slate-100 last:border-0 flex justify-between items-center"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800">
+                                  {student.studentName}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  Reg: {student.registrationNumber} | Roll:{" "}
+                                  {student.rollNumber}
+                                </p>
+                              </div>
+                              <span className="text-xs text-slate-400">
+                                {student.degree}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Selected Student Display */}
+                      {selectedStudent && (
+                        <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-green-800">
+                              {selectedStudent.studentName}
+                            </p>
+                            <p className="text-xs text-green-600">
+                              Reg: {selectedStudent.registrationNumber} | Hash:{" "}
+                              {selectedStudent.certificateHash?.substring(
+                                0,
+                                16,
+                              )}
+                              ...
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedStudent(null);
+                              setTargetRollToRevoke("");
+                            }}
+                            className="text-green-600 hover:text-red-500"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Revocation Reason */}
                       <div>
                         <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                           Official Invalidation Reason
@@ -1564,27 +1646,6 @@ const UniversityDashboard = () => {
                           placeholder="Falsified documentation, data discrepancy etc..."
                           className="w-full h-11 px-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm outline-none text-slate-700 focus:border-red-400 focus:ring-1 focus:ring-red-100 focus:bg-white transition-all"
                         />
-                      </div>
-
-                      {/* Optional Revocation Attachment Dropzone */}
-                      <div>
-                        <label className="block text-[11px] font-bold text-slate-500 tracking-wider uppercase mb-1.5">
-                          Optional Administrative Decree File
-                        </label>
-                        <div className="relative border border-dashed border-red-200 hover:border-red-400 bg-red-50/10 rounded-xl p-4 text-center transition-all cursor-pointer group">
-                          <input
-                            type="file"
-                            onChange={handleRevokeUpload}
-                            disabled={isProcessingRevoke}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            accept=".pdf,image/*"
-                          />
-                          <p className="text-xs font-semibold text-slate-600 group-hover:text-red-600 transition-colors">
-                            {revokeFile ?
-                              revokeFile.name
-                            : "+ Attach official invalidation PDF"}
-                          </p>
-                        </div>
                       </div>
                     </div>
 
@@ -1614,11 +1675,14 @@ const UniversityDashboard = () => {
                   <button
                     onClick={executeRevocation}
                     disabled={
-                      (!targetRollToRevoke && !revokeFile) || isProcessingRevoke
+                      !selectedStudent ||
+                      !revocationReasonInput ||
+                      isProcessingRevoke
                     }
                     className={`w-full mt-8 h-12 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2.5 transition-all ${
                       (
-                        (targetRollToRevoke || revokeFile) &&
+                        selectedStudent &&
+                        revocationReasonInput &&
                         !isProcessingRevoke
                       ) ?
                         "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-900/15 cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0"
@@ -1634,7 +1698,7 @@ const UniversityDashboard = () => {
           </AnimatePresence>
         </div>
 
-        {/* 4. Interactive Live Transactions Registry Table */}
+        {/* Transaction Registry Table */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
@@ -1689,13 +1753,15 @@ const UniversityDashboard = () => {
                         colSpan={5}
                         className="py-8 text-center text-slate-400 text-sm"
                       >
-                        No transactions match your search query filter. Try
-                        another Roll Number.
+                        {searchTerm ?
+                          "No transactions match your search query filter. Try another Roll Number."
+                        : "No transactions yet. Upload a certificate to get started!"
+                        }
                       </td>
                     </tr>
-                  : filteredTransactions.map((item) => (
+                  : filteredTransactions.slice(0, 10).map((item) => (
                       <tr
-                        key={item.id}
+                        key={item.id || item.hash}
                         onClick={() => setSelectedTx(item)}
                         className="hover:bg-blue-50/40 transition-all duration-150 cursor-pointer group"
                       >
@@ -1721,7 +1787,7 @@ const UniversityDashboard = () => {
                         <td className="py-4 px-4 font-mono text-[11px]">
                           <div className="flex items-center gap-2">
                             <span className="bg-slate-100 px-2.5 py-1 rounded text-[#002677]/90 group-hover:bg-blue-100/50 transition-all font-semibold">
-                              {item.hash.substring(0, 14)}...
+                              {item.hash?.substring(0, 14)}...
                             </span>
                           </div>
                         </td>
@@ -1737,7 +1803,7 @@ const UniversityDashboard = () => {
                               : "bg-blue-50 text-blue-700 border border-blue-100"
                             }`}
                           >
-                            {item.type}
+                            {item.type || "Upload"}
                           </span>
                         </td>
 
@@ -1755,17 +1821,20 @@ const UniversityDashboard = () => {
                             className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold ${
                               item.status === "Verified" ?
                                 "bg-green-100 text-green-700"
-                              : "bg-red-100 text-red-700"
+                              : item.status === "Revoked" ?
+                                "bg-red-100 text-red-700"
+                              : "bg-yellow-100 text-yellow-700"
                             }`}
                           >
                             <span
                               className={`w-1.5 h-1.5 rounded-full ${
-                                item.status === "Verified" ?
-                                  "bg-green-500"
-                                : "bg-red-500 animate-ping"
+                                item.status === "Verified" ? "bg-green-500"
+                                : item.status === "Revoked" ?
+                                  "bg-red-500 animate-ping"
+                                : "bg-yellow-500"
                               }`}
                             />
-                            {item.status}
+                            {item.status || "Pending"}
                           </span>
                         </td>
                       </tr>
@@ -1776,10 +1845,13 @@ const UniversityDashboard = () => {
             </table>
           </div>
 
-          <p className="text-[10px] text-slate-400 mt-3 text-right">
-            * Interactive Data: Click on any row to display smart contract Gas
-            Limits & Merkle Block roots.
-          </p>
+          {transactions.length > 0 && (
+            <p className="text-[10px] text-slate-400 mt-3 text-right">
+              * Showing latest {Math.min(filteredTransactions.length, 10)} of{" "}
+              {filteredTransactions.length} transactions. Click any row to
+              inspect proof.
+            </p>
+          )}
         </div>
 
         {/* 5. Immutable Ledger Verification Notice Indicator */}
@@ -1827,7 +1899,7 @@ const UniversityDashboard = () => {
                 <div className="flex items-center gap-2">
                   <Activity className="w-4 h-4 text-blue-400" />
                   <span className="font-bold text-sm tracking-wider uppercase font-mono">
-                    Block Ledger receipt
+                    Block Ledger Receipt
                   </span>
                 </div>
                 <button
@@ -1846,12 +1918,16 @@ const UniversityDashboard = () => {
                     className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${
                       selectedTx.status === "Verified" ?
                         "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
+                      : selectedTx.status === "Revoked" ?
+                        "bg-red-100 text-red-700"
+                      : "bg-yellow-100 text-yellow-700"
                     }`}
                   >
                     {selectedTx.status === "Verified" ?
                       "Verified Immutable Root"
-                    : "Status: Revoked Reference"}
+                    : selectedTx.status === "Revoked" ?
+                      "Status: Revoked Reference"
+                    : "Status: Pending"}
                   </span>
                   <h3 className="text-xl font-extrabold text-[#002677] mt-2">
                     {selectedTx.student}
@@ -1901,17 +1977,17 @@ const UniversityDashboard = () => {
                         Block Height
                       </div>
                       <div className="text-xs font-mono font-semibold text-slate-700 mt-1">
-                        #{selectedTx.blockNumber || 15482921}
+                        #{selectedTx.blockNumber || "Pending"}
                       </div>
                     </div>
 
                     {/* Gas spent */}
                     <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                       <div className="text-[10px] uppercase font-bold text-slate-400">
-                        Gas Gas-limit Used
+                        Gas Limit Used
                       </div>
                       <div className="text-xs font-semibold text-emerald-600 mt-1">
-                        {selectedTx.gasUsed || "45,000 Gas"}
+                        {selectedTx.gasUsed || "~45,000 Gas"}
                       </div>
                     </div>
                   </div>
@@ -1922,13 +1998,14 @@ const UniversityDashboard = () => {
                       // Standard Merkle Tree Proof Path:
                     </p>
                     <p>
-                      Leaf Link Code [0]: sha256("{selectedTx.student}:
+                      Leaf Link Code [0]: sha256("{selectedTx.student}:{" "}
                       {selectedTx.rollNumber}")
                     </p>
                     <p>Sibling hash [L1]: "0x6f2a...88bc"</p>
                     <p>Intermediate Parent Node [L2]: "0xfa11...7a29"</p>
                     <p className="text-green-400">
-                      State Root Hash verified on block: TRUE ✓
+                      State Root Hash verified on block:{" "}
+                      {selectedTx.status === "Verified" ? "TRUE ✓" : "FALSE ✗"}
                     </p>
                   </div>
 
@@ -1965,6 +2042,6 @@ const UniversityDashboard = () => {
       </AnimatePresence>
     </div>
   );
-};;;;;
+};;;;;;;;
 
 export default UniversityDashboard;

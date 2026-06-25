@@ -15,7 +15,9 @@ import {
   searchCertificates,
   getDashboardStats,
   revokeCertificate,
+  searchStudentsForRevocation,
   bulkUploadCertificates,
+  // getLatestTransactions,
 } from "../controllers/certificateController.js";
 import protect from "../../middleware/authMiddleware.js";
 
@@ -108,6 +110,12 @@ router.post(
   },
   uploadSingleCertificate,
 );
+
+//for interactive transaction table
+// router.get("/transactions", protect, getLatestTransactions);
+
+//for revocation search
+router.get("/search-students", protect, searchStudentsForRevocation);
 
 // Bulk upload - with increased limits
 router.post(

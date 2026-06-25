@@ -292,6 +292,7 @@ export const getDashboardStats = async (req, res) => {
   }
 };
 
+
 // Get all certificates for university
 export const getCertificates = async (req, res) => {
   try {
@@ -327,8 +328,11 @@ export const getCertificates = async (req, res) => {
   }
 };
 
+
 // Revoke certificate
-// Update revokeCertificate - use the method that exists
+// backend/src/controllers/certificateController.js
+// Update revokeCertificate function
+
 export const revokeCertificate = async (req, res) => {
   try {
     const { hash } = req.params;
@@ -363,24 +367,37 @@ export const revokeCertificate = async (req, res) => {
     await blockchainConfig.initialize();
     const contract = blockchainConfig.getContract();
 
-    // Use revokeCertificate (exists in your contract)
-    const tx = await contract.revokeCertificate(hash);
-    await tx.wait();
+const blockchainHash = hash.startsWith("0x") ? hash : `0x${hash}`;
+
+const tx = await contract.revokeCertificate(
+  blockchainHash,
+  reason || "No reason provided",
+);
+const receipt = await tx.wait();
 
     // Update database
-    await Certificate.findOneAndUpdate(
+    const updatedCertificate = await Certificate.findOneAndUpdate(
       { certificateHash: hash },
       {
         status: "revoked",
         revocationReason: reason || "No reason provided",
         revokedAt: new Date(),
-      }
+      },
+      { new: true }
     );
 
     res.status(200).json({
       success: true,
       message: "Certificate revoked successfully",
-      transactionHash: tx.hash,
+      data: {
+        certificateHash: hash,
+        status: "revoked",
+        revocationReason: reason || "No reason provided",
+        revokedAt: new Date(),
+        transactionHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+        certificate: updatedCertificate,
+      },
     });
   } catch (error) {
     console.error("Revocation error:", error);
@@ -410,6 +427,52 @@ export const getCertificateById = async (req, res) => {
     });
   } catch (error) {
     console.error("Get certificate error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// backend/src/controllers/certificateController.js
+// Add this function for searching students for revocation
+
+// Search students for revocation (by name or registration number)
+export const searchStudentsForRevocation = async (req, res) => {
+  try {
+    const universityId = req.user?.universityId || req.user?.id;
+    const { query } = req.query;
+
+    if (!query || query.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Search query must be at least 2 characters",
+      });
+    }
+
+    const searchRegex = new RegExp(query, "i");
+    
+    // Find certificates with status "verified" (not already revoked)
+    const certificates = await Certificate.find({
+      universityId,
+      status: "verified",
+      $or: [
+        { studentName: searchRegex },
+        { registrationNumber: searchRegex },
+        { rollNumber: searchRegex },
+        { studentId: searchRegex },
+      ],
+    })
+    .limit(20)
+    .select("studentName registrationNumber rollNumber certificateHash degree issueDate");
+
+    res.status(200).json({
+      success: true,
+      students: certificates,
+      count: certificates.length,
+    });
+  } catch (error) {
+    console.error("Search students error:", error);
     res.status(500).json({
       success: false,
       message: error.message,
