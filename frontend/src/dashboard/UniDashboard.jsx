@@ -302,87 +302,109 @@ const UniversityDashboard = () => {
     }
   };
 
-  const executeBulkImport = () => {
-    if (!excelFile) return;
+  // executeBulkImport function
+
+  const executeBulkImport = async () => {
+    if (!excelFile) {
+      alert("Please select an Excel file first.");
+      return;
+    }
+
+    // Validate file type
+    const validTypes = [".xlsx", ".xls", ".csv"];
+    const fileExt = excelFile.name
+      .substring(excelFile.name.lastIndexOf("."))
+      .toLowerCase();
+    if (!validTypes.includes(fileExt)) {
+      alert("Please upload a valid Excel file (.xlsx, .xls, or .csv)");
+      return;
+    }
 
     setIsProcessingExcel(true);
-    setExcelProcessingStep("Reading worksheet records...");
+    setExcelProcessingStep("Validating file...");
 
-    setTimeout(() => {
-      setExcelProcessingStep(
-        "Parsed 3 student entries: Bilal, Nimra, Hammad...",
-      );
-      setTimeout(() => {
+    const formData = new FormData();
+    formData.append("excel", excelFile);
+
+    try {
+      setExcelProcessingStep("Processing spreadsheet...");
+
+      const response = await API.post("/certificates/bulk-import", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        timeout: 300000, // 5 minutes for large files
+      });
+
+      console.log("✅ Bulk Import Response:", response.data);
+
+      if (response.data.success) {
+        const results = response.data.results || [];
+        const errors = response.data.errors || [];
+        const merkleRoot = response.data.merkleRoot;
+
         setExcelProcessingStep(
-          "Generating Merkle Tree leaves & gas parameters...",
+          `✅ ${response.data.savedCount} certificates imported! Merkle Root: ${merkleRoot.substring(0, 16)}...`,
         );
-        setTimeout(() => {
-          setExcelProcessingStep("Pushing batch to smart contract...");
-          setTimeout(() => {
-            const bulkRecords = [
-              {
-                id: `bulk-1-${Date.now()}`,
-                student: "Bilal Anwar",
-                rollNumber: "2023-SE-094",
-                hash: generateSecuredHash("Bilal Anwar"),
-                time: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-                type: "Bulk Import",
-                status: "Verified",
-                degree: "BS Software Engineering",
-                gpa: "3.64",
-                gasUsed: "74,210 Gas (Batch)",
-                blockNumber: 15483120,
-              },
-              {
-                id: `bulk-2-${Date.now()}`,
-                student: "Nimra Jameel",
-                rollNumber: "2023-CS-318",
-                hash: generateSecuredHash("Nimra Jameel"),
-                time: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-                type: "Bulk Import",
-                status: "Verified",
-                degree: "BS Computer Science",
-                gpa: "3.78",
-                gasUsed: "74,210 Gas (Batch)",
-                blockNumber: 15483121,
-              },
-              {
-                id: `bulk-3-${Date.now()}`,
-                student: "Hammad Safdar",
-                rollNumber: "2023-EE-115",
-                hash: generateSecuredHash("Hammad Safdar"),
-                time: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-                type: "Bulk Import",
-                status: "Verified",
-                degree: "BS Electrical Engineering",
-                gpa: "3.24",
-                gasUsed: "74,210 Gas (Batch)",
-                blockNumber: 15483122,
-              },
-            ];
 
-            // Prepend batch records and update stats counters
-            setTransactions((prev) => [...bulkRecords, ...prev]);
-            setTotalTxs((prev) => prev + 1); // 1 block write
-            setRecordsStored((prev) => prev + 3); // 3 records
-            setVerifiedStudents((prev) => prev + 3);
+        // Add transactions to the list
+        results.forEach((cert) => {
+          const newTx = {
+            id: `tx-batch-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            student: cert.studentName || "Unknown",
+            rollNumber: cert.registrationNumber || "N/A",
+            hash: cert.certificateHash || "0x...",
+            time: new Date().toLocaleTimeString(),
+            type: "Batch Import",
+            status: "Verified",
+            degree: "Multiple",
+            gasUsed: "~120,000 Gas",
+            blockNumber: response.data.blockNumber || 0,
+            batch: true,
+            merkleRoot: merkleRoot,
+          };
+          setTransactions((prev) => [newTx, ...prev]);
+        });
 
-            setIsProcessingExcel(false);
-            setExcelFile(null);
-            setExcelProcessingStep("");
-          }, 800);
-        }, 800);
-      }, 800);
-    }, 800);
+        // Update stats
+        const successCount = response.data.savedCount || 0;
+        if (successCount > 0) {
+          setTotalTxs((prev) => prev + 1); // One batch transaction
+          setRecordsStored((prev) => prev + successCount);
+          setVerifiedStudents((prev) => prev + successCount);
+        }
+
+        // Show errors if any
+        if (errors.length > 0) {
+          console.warn("⚠️ Some records failed:", errors);
+          setExcelProcessingStep(
+            `⚠️ ${response.data.savedCount} succeeded, ${errors.length} failed. Check console for details.`,
+          );
+        }
+
+        // Clear file after successful upload
+        setExcelFile(null);
+      } else {
+        setExcelProcessingStep(
+          "❌ Error: " + (response.data.message || "Import failed"),
+        );
+      }
+    } catch (error) {
+      console.error("❌ Bulk import error:", error);
+      setExcelProcessingStep(
+        "❌ Error: " + (error.response?.data?.message || error.message),
+      );
+    } finally {
+      setTimeout(() => {
+        setIsProcessingExcel(false);
+        if (
+          !setExcelProcessingStep.includes("✅") &&
+          !setExcelProcessingStep.includes("❌")
+        ) {
+          setExcelProcessingStep("");
+        }
+      }, 3000);
+    }
   };
 
   // 2b. Handle Bulk Certificates PDF/PNG Selection & Process
@@ -2042,6 +2064,6 @@ const UniversityDashboard = () => {
       </AnimatePresence>
     </div>
   );
-};;;;;;;;
+};;;;;;;;;
 
 export default UniversityDashboard;

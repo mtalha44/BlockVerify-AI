@@ -3,13 +3,14 @@ import mongoose from "mongoose";
 
 const certificateSchema = new mongoose.Schema(
   {
+    // CORE CERTIFICATE DATA
     certificateHash: {
       type: String,
       required: true,
       unique: true,
       index: true,
     },
-    // Student Information
+
     studentName: {
       type: String,
       required: true,
@@ -44,7 +45,9 @@ const certificateSchema = new mongoose.Schema(
       default: "",
     },
 
-    // Metadata
+    // =====================================================
+    // METADATA
+    // =====================================================
     universityId: {
       type: String,
       required: true,
@@ -58,7 +61,9 @@ const certificateSchema = new mongoose.Schema(
       default: Date.now,
     },
 
-    // Blockchain Info
+    // =====================================================
+    // BLOCKCHAIN INFO
+    // =====================================================
     transactionHash: {
       type: String,
       required: true,
@@ -67,7 +72,42 @@ const certificateSchema = new mongoose.Schema(
       type: Number,
     },
 
-    // Status
+    // =====================================================
+    // MERKLE TREE INFORMATION (FOR EXCEL BATCH)
+    // =====================================================
+    merkleRoot: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    merkleProof: {
+      type: [String],
+      default: [],
+    },
+    leafIndex: {
+      type: Number,
+      default: null,
+    },
+    batchId: {
+      type: String,
+      default: null,
+    },
+    batchLeafCount: {
+      type: Number,
+      default: 0,
+    },
+    batchTransactionHash: {
+      type: String,
+      default: null,
+    },
+    isBatchCertificate: {
+      type: Boolean,
+      default: false,
+    },
+
+    // =====================================================
+    // STATUS
+    // =====================================================
     status: {
       type: String,
       enum: ["pending", "verified", "revoked", "failed"],
@@ -82,7 +122,9 @@ const certificateSchema = new mongoose.Schema(
       default: null,
     },
 
-    // OCR Data
+    // =====================================================
+    // OCR DATA
+    // =====================================================
     ocrData: {
       type: Object,
       default: null,
@@ -105,6 +147,10 @@ const certificateSchema = new mongoose.Schema(
 certificateSchema.index({ universityId: 1, createdAt: -1 });
 certificateSchema.index({ registrationNumber: 1 });
 certificateSchema.index({ studentName: 1 });
+certificateSchema.index({ certificateHash: 1 });
+certificateSchema.index({ merkleRoot: 1 });
+certificateSchema.index({ batchId: 1 });
+certificateSchema.index({ isBatchCertificate: 1 });
 
 const Certificate = mongoose.model("Certificate", certificateSchema);
 export default Certificate;

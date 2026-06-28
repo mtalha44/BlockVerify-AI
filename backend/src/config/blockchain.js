@@ -14,15 +14,14 @@ class BlockchainConfig {
     this.contract = null;
     this.contractAddress = null;
     this.walletAddress = null;
+    this.artifact = null; // Cache artifact
   }
 
   async initialize() {
     try {
-      // Get RPC URL (use localhost or Sepolia)
       const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || "http://localhost:8545";
       this.provider = new ethers.JsonRpcProvider(rpcUrl);
 
-      // Setup signer
       const privateKey = process.env.SERVER_WALLET_PRIVATE_KEY;
       if (!privateKey) {
         throw new Error("SERVER_WALLET_PRIVATE_KEY not found in .env");
@@ -31,23 +30,36 @@ class BlockchainConfig {
       this.signer = new ethers.Wallet(privateKey, this.provider);
       this.walletAddress = await this.signer.getAddress();
 
-      // Get contract address
       this.contractAddress = process.env.CONTRACT_ADDRESS;
       if (!this.contractAddress) {
         throw new Error("CONTRACT_ADDRESS not found in .env");
       }
 
-      // Load ABI
+      // Load ABI - Use fs.readFileSync instead of require
       const artifactPath = path.join(
         __dirname,
         "../../../blockchain/artifacts/contracts/CertificateRegistry.sol/CertificateRegistry.json",
       );
 
+      console.log(`📄 Loading artifact from: ${artifactPath}`);
+
       if (!fs.existsSync(artifactPath)) {
         throw new Error(`Contract artifact not found at ${artifactPath}`);
       }
 
-      const artifact = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+      // Read and parse the artifact file
+      const artifactContent = fs.readFileSync(artifactPath, "utf8");
+      const artifact = JSON.parse(artifactContent);
+
+      console.log(`✅ Artifact loaded, ABI has ${artifact.abi.length} entries`);
+
+      // Log the storeMerkleBatch method signature for debugging
+      const method = artifact.abi.find(
+        (item) => item.name === "storeMerkleBatch" && item.type === "function",
+      );
+      if (method) {
+        console.log(`🔍 storeMerkleBatch signature found`);
+      }
 
       this.contract = new ethers.Contract(
         this.contractAddress,
@@ -59,7 +71,6 @@ class BlockchainConfig {
       console.log(`👛 Wallet: ${this.walletAddress}`);
       console.log(`📝 Contract: ${this.contractAddress}`);
 
-      // Check balance
       const balance = await this.provider.getBalance(this.walletAddress);
       console.log(`💰 Balance: ${ethers.formatEther(balance)} ETH`);
 
@@ -84,6 +95,34 @@ class BlockchainConfig {
 
   getWalletAddress() {
     return this.walletAddress;
+  }
+
+  // Helper to verify contract methods exist
+  async verifyContractMethods() {
+    if (!this.contract) return;
+
+    const methods = [
+      "storeCertificate",
+      "storeMerkleBatch",
+      "revokeCertificate",
+      "revokeMerkleBatch",
+      "verifyCertificate",
+      "verifyMerkleProof",
+      "verifyMerkleBatch",
+      "getBatchInfo",
+      "getIssuerStats",
+      "getCertificateCount",
+    ];
+
+    console.log("🔍 Checking contract methods:");
+    for (const method of methods) {
+      try {
+        const exists = this.contract[method] !== undefined;
+        console.log(`   ${method}: ${exists ? "✅" : "❌"}`);
+      } catch (e) {
+        console.log(`   ${method}: ❌ (error)`);
+      }
+    }
   }
 }
 

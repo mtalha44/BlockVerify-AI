@@ -20,6 +20,8 @@ import {
   // getLatestTransactions,
 } from "../controllers/certificateController.js";
 import protect from "../../middleware/authMiddleware.js";
+import { bulkImportFromExcel } from '../controllers/certificateController.js';
+
 
 const router = express.Router();
 
@@ -52,16 +54,35 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = [
+  const allowedMimeTypes = [
+    // Images
     "image/png",
     "image/jpeg",
     "image/jpg",
+
+    // PDF
     "application/pdf",
+
+    // Excel (.xlsx)
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+    // Excel (.xls)
+    "application/vnd.ms-excel",
+
+    // CSV
+    "text/csv",
   ];
-  if (allowedTypes.includes(file.mimetype)) {
+
+  if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Only PNG, JPG, JPEG, and PDF files are allowed"), false);
+    console.log("Rejected MIME:", file.mimetype);
+
+    cb(
+      new Error(
+        "Only PNG, JPG, JPEG, PDF, XLSX, XLS and CSV files are allowed",
+      ),
+    );
   }
 };
 
@@ -111,8 +132,13 @@ router.post(
   uploadSingleCertificate,
 );
 
-//for interactive transaction table
-// router.get("/transactions", protect, getLatestTransactions);
+//For Bulk Excel Certificate Upload
+router.post(
+  "/bulk-import",
+  protect,
+  upload.single("excel"),
+  bulkImportFromExcel,
+);
 
 //for revocation search
 router.get("/search-students", protect, searchStudentsForRevocation);
@@ -167,5 +193,43 @@ router.get("/stats", protect, getCertificateStats);
 router.get("/dashboard-stats", protect, getDashboardStats);
 router.get("/search", protect, searchCertificates);
 router.post("/revoke/:hash", protect, revokeCertificate);
+// Debug endpoint to check contract
+router.get("/debug-contract", protect, async (req, res) => {
+  try {
+    await blockchainConfig.initialize();
+    await blockchainConfig.verifyContractMethods();
+    
+    const contract = blockchainConfig.getContract();
+    
+    // Try to call getCertificateCount
+    let count = 0;
+    try {
+      count = Number(await contract.getCertificateCount());
+    } catch (e) {
+      console.log("getCertificateCount error:", e.message);
+    }
+    
+    res.json({
+      success: true,
+      methods: {
+        storeCertificate: !!contract.storeCertificate,
+        storeMerkleBatch: !!contract.storeMerkleBatch,
+        revokeCertificate: !!contract.revokeCertificate,
+        revokeMerkleBatch: !!contract.revokeMerkleBatch,
+        verifyCertificate: !!contract.verifyCertificate,
+        verifyMerkleProof: !!contract.verifyMerkleProof,
+        getIssuerStats: !!contract.getIssuerStats,
+        getCertificateCount: !!contract.getCertificateCount,
+      },
+      count,
+      contractAddress: process.env.CONTRACT_ADDRESS,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
 
 export default router;

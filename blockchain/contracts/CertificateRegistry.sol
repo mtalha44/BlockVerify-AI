@@ -12,32 +12,26 @@ contract CertificateRegistry {
         uint256 blockNumber;
     }
     
-    struct BatchCertificate {
-        bytes32 hash;
-        uint256 timestamp;
-        address issuer;
-        bool isRevoked;
-        uint256 blockNumber;
-        uint256 batchId;
-    }
-    
     struct MerkleBatch {
         bytes32 merkleRoot;
+        string metadata;
+        uint256 certificateCount;
         uint256 timestamp;
         address issuer;
         bool isValid;
-        uint256 certificateCount;
-        bytes32[] leaves;
     }
     
     mapping(bytes32 => Certificate) public certificates;
-    mapping(bytes32 => BatchCertificate) public batchCertificates;
-    mapping(uint256 => MerkleBatch) public merkleBatches;
+    mapping(bytes32 => MerkleBatch) public merkleBatches;
+    mapping(bytes32 => bool) public merkleBatchExists;
     
     mapping(address => uint256) public issuerTotalCertificates;
     mapping(address => uint256) public issuerActiveCertificates;
     mapping(address => uint256) public issuerRevokedCertificates;
     mapping(address => uint256) public issuerTotalTransactions;
+    mapping(address => uint256) public issuerTotalBatches;
+    
+    uint256 public batchIdCounter;
     
     event CertificateStored(
         bytes32 indexed hash,
@@ -46,16 +40,9 @@ contract CertificateRegistry {
         uint256 blockNumber
     );
     
-    event BatchCertificateStored(
-        bytes32 indexed hash,
-        address indexed issuer,
-        uint256 indexed batchId,
-        uint256 timestamp
-    );
-    
     event MerkleBatchStored(
         uint256 indexed batchId,
-        bytes32 merkleRoot,
+        bytes32 indexed merkleRoot,
         address indexed issuer,
         uint256 certificateCount,
         uint256 timestamp
@@ -69,13 +56,15 @@ contract CertificateRegistry {
     );
     
     event BatchRevoked(
-        uint256 indexed batchId,
+        bytes32 indexed merkleRoot,
         address indexed issuer,
         string reason,
         uint256 timestamp
     );
     
-    constructor() {}
+    constructor() {
+        batchIdCounter = 0;
+    }
     
     function storeCertificate(
         bytes32 _hash,
@@ -101,54 +90,38 @@ contract CertificateRegistry {
         emit CertificateStored(_hash, msg.sender, block.timestamp, block.number);
     }
     
-    function storeBatchCertificate(
-        bytes32 _hash,
-        uint256 _batchId,
-        string memory _metadata
-    ) external {
-        require(_hash != bytes32(0), "Invalid hash");
-        require(!batchCertificates[_hash].isRevoked, "Certificate already revoked");
-        require(batchCertificates[_hash].hash == bytes32(0), "Certificate already exists");
-        
-        batchCertificates[_hash] = BatchCertificate({
-            hash: _hash,
-            timestamp: block.timestamp,
-            issuer: msg.sender,
-            isRevoked: false,
-            blockNumber: block.number,
-            batchId: _batchId
-        });
-        
-        issuerTotalCertificates[msg.sender]++;
-        issuerActiveCertificates[msg.sender]++;
-        issuerTotalTransactions[msg.sender]++;
-        
-        emit BatchCertificateStored(_hash, msg.sender, _batchId, block.timestamp);
-    }
-    
     function storeMerkleBatch(
-        uint256 _batchId,
         bytes32 _merkleRoot,
-        bytes32[] memory _leaves,
+        string memory _metadata,
         uint256 _certificateCount
-    ) external {
+    ) external returns (uint256 batchId) {
         require(_merkleRoot != bytes32(0), "Invalid merkle root");
-        require(!merkleBatches[_batchId].isValid, "Batch already exists");
+        require(_certificateCount > 0, "At least one certificate required");
+        require(!merkleBatchExists[_merkleRoot], "Batch already exists");
         
-        merkleBatches[_batchId] = MerkleBatch({
+        // Increment batch ID
+        batchIdCounter++;
+        batchId = batchIdCounter;
+        
+        merkleBatches[_merkleRoot] = MerkleBatch({
             merkleRoot: _merkleRoot,
+            metadata: _metadata,
+            certificateCount: _certificateCount,
             timestamp: block.timestamp,
             issuer: msg.sender,
-            isValid: true,
-            certificateCount: _certificateCount,
-            leaves: _leaves
+            isValid: true
         });
+        
+        merkleBatchExists[_merkleRoot] = true;
         
         issuerTotalCertificates[msg.sender] += _certificateCount;
         issuerActiveCertificates[msg.sender] += _certificateCount;
         issuerTotalTransactions[msg.sender]++;
+        issuerTotalBatches[msg.sender]++;
         
-        emit MerkleBatchStored(_batchId, _merkleRoot, msg.sender, _certificateCount, block.timestamp);
+        emit MerkleBatchStored(batchId, _merkleRoot, msg.sender, _certificateCount, block.timestamp);
+        
+        return batchId;
     }
     
     function revokeCertificate(bytes32 _hash, string memory _reason) external {
@@ -166,73 +139,161 @@ contract CertificateRegistry {
         emit CertificateRevoked(_hash, msg.sender, _reason, block.timestamp);
     }
     
-    function revokeBatchCertificate(bytes32 _hash, string memory _reason) external {
-        require(batchCertificates[_hash].hash != bytes32(0), "Certificate not found");
-        require(batchCertificates[_hash].issuer == msg.sender, "Not authorized");
-        require(!batchCertificates[_hash].isRevoked, "Already revoked");
+    function revokeMerkleBatch(bytes32 _merkleRoot, string memory _reason) external {
+        require(merkleBatchExists[_merkleRoot], "Batch not found");
+        require(merkleBatches[_merkleRoot].issuer == msg.sender, "Not authorized");
+        require(merkleBatches[_merkleRoot].isValid, "Batch already revoked");
         
-        batchCertificates[_hash].isRevoked = true;
-        issuerActiveCertificates[msg.sender]--;
-        issuerRevokedCertificates[msg.sender]++;
+        merkleBatches[_merkleRoot].isValid = false;
+        
+        uint256 count = merkleBatches[_merkleRoot].certificateCount;
+        issuerActiveCertificates[msg.sender] -= count;
+        issuerRevokedCertificates[msg.sender] += count;
         issuerTotalTransactions[msg.sender]++;
         
-        emit CertificateRevoked(_hash, msg.sender, _reason, block.timestamp);
+        emit BatchRevoked(_merkleRoot, msg.sender, _reason, block.timestamp);
     }
     
-    function revokeMerkleBatch(uint256 _batchId, string memory _reason) external {
-        require(merkleBatches[_batchId].isValid, "Batch not found");
-        require(merkleBatches[_batchId].issuer == msg.sender, "Not authorized");
-        
-        merkleBatches[_batchId].isValid = false;
-        issuerActiveCertificates[msg.sender] -= merkleBatches[_batchId].certificateCount;
-        issuerRevokedCertificates[msg.sender] += merkleBatches[_batchId].certificateCount;
-        issuerTotalTransactions[msg.sender]++;
-        
-        emit BatchRevoked(_batchId, msg.sender, _reason, block.timestamp);
-    }
-    
-    function verifyCertificate(bytes32 _hash) external view returns (
-        bool exists,
-        bool isRevoked,
-        address issuer,
-        uint256 timestamp,
-        string memory revocationReason
-    ) {
+    function verifyCertificate(bytes32 _hash)
+        external
+        view
+        returns(
+            bool exists,
+            bool isRevoked,
+            address issuer,
+            uint256 timestamp,
+            string memory revocationReason
+        )
+    {
         Certificate memory cert = certificates[_hash];
-        if (cert.hash == bytes32(0)) {
-            BatchCertificate memory batchCert = batchCertificates[_hash];
-            if (batchCert.hash != bytes32(0)) {
-                return (true, batchCert.isRevoked, batchCert.issuer, batchCert.timestamp, "");
-            }
-            return (false, false, address(0), 0, "");
+
+        if(cert.hash == bytes32(0)) {
+            return(
+                false,
+                false,
+                address(0),
+                0,
+                ""
+            );
         }
-        return (true, cert.isRevoked, cert.issuer, cert.timestamp, cert.revocationReason);
+
+        return(
+            true,
+            cert.isRevoked,
+            cert.issuer,
+            cert.timestamp,
+            cert.revocationReason
+        );
     }
     
-    function verifyMerkleProof(bytes32 _leaf, bytes32[] memory _proof, uint256 _batchId) external view returns (bool) {
-        MerkleBatch storage batch = merkleBatches[_batchId];
-        require(batch.isValid, "Invalid batch");
+    function verifyMerkleProof(
+        bytes32 _leaf,
+        bytes32[] memory _proof,
+        bytes32 _merkleRoot
+    ) external view returns (bool) {
+        require(merkleBatchExists[_merkleRoot], "Batch not found");
+        require(merkleBatches[_merkleRoot].isValid, "Batch revoked");
         
+        MerkleBatch memory batch = merkleBatches[_merkleRoot];
         bytes32 computedHash = _leaf;
+        
         for (uint256 i = 0; i < _proof.length; i++) {
-            computedHash = _proof[i] < computedHash ? 
-                keccak256(abi.encodePacked(_proof[i], computedHash)) :
-                keccak256(abi.encodePacked(computedHash, _proof[i]));
+            if (_proof[i] < computedHash) {
+                computedHash = keccak256(abi.encodePacked(_proof[i], computedHash));
+            } else {
+                computedHash = keccak256(abi.encodePacked(computedHash, _proof[i]));
+            }
         }
+        
         return computedHash == batch.merkleRoot;
+    }
+    
+    function verifyMerkleBatch(
+        bytes32 _merkleRoot
+    )
+        external
+        view
+        returns(
+            bool exists,
+            bool isValid,
+            address issuer,
+            uint256 certificateCount,
+            uint256 timestamp,
+            string memory metadata
+        )
+    {
+        if(!merkleBatchExists[_merkleRoot]) {
+            return(
+                false,
+                false,
+                address(0),
+                0,
+                0,
+                ""
+            );
+        }
+        
+        MerkleBatch memory batch = merkleBatches[_merkleRoot];
+        
+        return(
+            true,
+            batch.isValid,
+            batch.issuer,
+            batch.certificateCount,
+            batch.timestamp,
+            batch.metadata
+        );
+    }
+    
+    function getBatchInfo(
+        bytes32 _merkleRoot
+    )
+        external
+        view
+        returns(
+            bytes32 merkleRoot,
+            string memory metadata,
+            uint256 certificateCount,
+            uint256 timestamp,
+            address issuer,
+            bool isValid
+        )
+    {
+        require(merkleBatchExists[_merkleRoot], "Batch not found");
+        
+        MerkleBatch memory batch = merkleBatches[_merkleRoot];
+        
+        return(
+            batch.merkleRoot,
+            batch.metadata,
+            batch.certificateCount,
+            batch.timestamp,
+            batch.issuer,
+            batch.isValid
+        );
+    }
+    
+    function getCertificateCount()
+        external
+        view
+        returns(uint256)
+    {
+        return issuerTotalCertificates[msg.sender];
     }
     
     function getIssuerStats(address _issuer) external view returns (
         uint256 totalCertificates,
         uint256 activeCertificates,
         uint256 revokedCertificates,
-        uint256 totalTransactions
+        uint256 totalTransactions,
+        uint256 totalBatches
     ) {
         return (
             issuerTotalCertificates[_issuer],
             issuerActiveCertificates[_issuer],
             issuerRevokedCertificates[_issuer],
-            issuerTotalTransactions[_issuer]
+            issuerTotalTransactions[_issuer],
+            issuerTotalBatches[_issuer]
         );
     }
 }

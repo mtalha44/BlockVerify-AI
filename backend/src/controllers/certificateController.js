@@ -4,6 +4,8 @@ import BatchJob from "../models/BatchJob.js";
 import easyOCRService from "../services/ocr/easyOcrService.js";
 import blockchainConfig from "../config/blockchain.js";
 import fs from "fs";
+import xlsx from "xlsx";
+import { createMerkleTreeFromStudents } from "../services/blockchain/merkleService.js";
 import crypto from "crypto";
 
 // Upload single certificate
@@ -249,16 +251,14 @@ export const getBatchStatus = async (req, res) => {
 };
 
 // Get dashboard stats
+// backend/src/controllers/certificateController.js
+// Update getDashboardStats to handle missing contract methods
+
 export const getDashboardStats = async (req, res) => {
   try {
     const universityId = req.user?.universityId || req.user?.id;
 
-    // Get blockchain stats
-    await blockchainConfig.initialize();
-    const contract = blockchainConfig.getContract();
-    const totalCertificates = await contract.getCertificateCount();
-
-    // Get database stats
+    // Get database stats (always works)
     const dbTotal = await Certificate.countDocuments({ universityId });
     const verifiedCount = await Certificate.countDocuments({
       universityId,
@@ -275,9 +275,27 @@ export const getDashboardStats = async (req, res) => {
         "studentName registrationNumber certificateHash transactionHash status createdAt",
       );
 
+    // Try to get blockchain stats, fallback to database stats
+    let totalCertificates = 0;
+    try {
+      await blockchainConfig.initialize();
+      const contract = blockchainConfig.getContract();
+      
+      // Try to call getCertificateCount if it exists
+      if (contract.getCertificateCount) {
+        totalCertificates = Number(await contract.getCertificateCount()) || 0;
+      } else {
+        // Fallback: count from database
+        totalCertificates = dbTotal;
+      }
+    } catch (blockchainError) {
+      console.warn("⚠️ Blockchain stats not available, using database stats");
+      totalCertificates = dbTotal;
+    }
+
     res.json({
       success: true,
-      totalWriteTransactions: Number(totalCertificates) || 0,
+      totalWriteTransactions: totalCertificates || dbTotal || 0,
       recordsStored: dbTotal || 0,
       verifiedStudents: verifiedCount || 0,
       revokedCount: revokedCount || 0,
@@ -291,7 +309,6 @@ export const getDashboardStats = async (req, res) => {
     });
   }
 };
-
 
 // Get all certificates for university
 export const getCertificates = async (req, res) => {
@@ -740,6 +757,28 @@ export const searchCertificates = async (req, res) => {
   } catch (error) {
     console.error("Search error:", error);
     res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+//excel upload
+// Bulk import from Excel/CSV
+import certificateBatchService from "../services/certificate/certificateBatchService.js";
+
+export const bulkImportFromExcel = async (req, res) => {
+  try {
+    const result = await certificateBatchService.importExcel(
+      req.file,
+      req.user,
+    );
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error("Bulk Import Error:", error);
+
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
