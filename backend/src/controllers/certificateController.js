@@ -346,14 +346,14 @@ export const getCertificates = async (req, res) => {
 };
 
 
-// Revoke certificate
 // backend/src/controllers/certificateController.js
-// Update revokeCertificate function
+// Replace the revokeCertificate function with hybrid approach
 
 export const revokeCertificate = async (req, res) => {
   try {
     const { hash } = req.params;
     const { reason } = req.body;
+    const revokedBy = req.user?.id || req.user?.email || 'unknown';
 
     if (!hash) {
       return res.status(400).json({
@@ -362,9 +362,18 @@ export const revokeCertificate = async (req, res) => {
       });
     }
 
-    console.log(`🚫 Revoking certificate: ${hash}`);
+    if (!reason || reason.trim().length < 3) {
+      return res.status(400).json({
+        success: false,
+        message: "Revocation reason is required (minimum 3 characters)",
+      });
+    }
 
-    // Check if certificate exists in database
+    console.log(`🚫 Revoking certificate: ${hash}`);
+    console.log(`📝 Reason: ${reason}`);
+    console.log(`👤 Revoked by: ${revokedBy}`);
+
+    // Step 1: Check if certificate exists in database
     const certificate = await Certificate.findOne({ certificateHash: hash });
     if (!certificate) {
       return res.status(404).json({
@@ -373,49 +382,182 @@ export const revokeCertificate = async (req, res) => {
       });
     }
 
+    // Step 2: Check if already revoked
     if (certificate.status === "revoked") {
       return res.status(400).json({
         success: false,
         message: "Certificate already revoked",
+        data: {
+          revokedAt: certificate.revokedAt,
+          revocationReason: certificate.revocationReason,
+          revokedBy: certificate.revokedBy,
+        },
       });
     }
 
-    // Revoke on blockchain
-    await blockchainConfig.initialize();
-    const contract = blockchainConfig.getContract();
+    // Step 3: Determine revocation type
+    const isBatchCertificate = certificate.isBatchCertificate === true;
+    const blockchainHash = hash.startsWith("0x") ? hash : `0x${hash}`;
 
-const blockchainHash = hash.startsWith("0x") ? hash : `0x${hash}`;
+    let transactionHash = null;
+    let blockNumber = null;
+    let revocationType = isBatchCertificate ? 'batch' : 'single';
 
-const tx = await contract.revokeCertificate(
-  blockchainHash,
-  reason || "No reason provided",
-);
-const receipt = await tx.wait();
+    // Step 4: Handle based on certificate type
+    if (isBatchCertificate) {
+      // ============================================================
+      // BATCH CERTIFICATE REVOCATION - MUTABLE STATE ONLY
+      // ============================================================
+      console.log(
+        `📦 Batch certificate detected. Merkle Root: ${certificate.merkleRoot}`,
+      );
+      console.log(`📦 Batch ID: ${certificate.batchId}`);
+      console.log(`📦 Leaf Index: ${certificate.leafIndex}`);
 
-    // Update database
-    const updatedCertificate = await Certificate.findOneAndUpdate(
-      { certificateHash: hash },
-      {
-        status: "revoked",
-        revocationReason: reason || "No reason provided",
-        revokedAt: new Date(),
-      },
-      { new: true }
-    );
+      // backend/src/controllers/certificateController.js
+      // In the batch certificate section, replace the audit log try-catch
 
-    res.status(200).json({
-      success: true,
-      message: "Certificate revoked successfully",
-      data: {
-        certificateHash: hash,
-        status: "revoked",
-        revocationReason: reason || "No reason provided",
-        revokedAt: new Date(),
-        transactionHash: tx.hash,
-        blockNumber: receipt.blockNumber,
-        certificate: updatedCertificate,
-      },
-    });
+      try {
+        // Attempt to log revocation on blockchain (audit only)
+        await blockchainConfig.initialize();
+        const contract = blockchainConfig.getContract();
+
+        // Check if contract has the audit log function
+        if (contract.logCertificateRevocation) {
+          console.log(`📝 Logging revocation audit on blockchain...`);
+
+          const tx = await contract.logCertificateRevocation(
+            blockchainHash,
+            reason,
+            certificate.batchId || certificate.merkleRoot || "unknown",
+          );
+          transactionHash = tx.hash;
+          const receipt = await tx.wait();
+          blockNumber = receipt.blockNumber;
+          console.log(`✅ Audit log recorded: ${transactionHash}`);
+        } else {
+          console.log(`ℹ️ Audit log function not available in contract`);
+          console.log(`ℹ️ Please update contract and redeploy`);
+        }
+      } catch (auditError) {
+        // Non-blocking - continue with database update
+        console.warn(`⚠️ Blockchain audit log failed: ${auditError.message}`);
+        console.warn(`⚠️ Continuing with database revocation...`);
+
+        // Log the error but don't fail the operation
+        // This ensures revocation still works even if audit log fails
+      }
+
+      // backend/src/controllers/certificateController.js
+      // Replace the findOneAndUpdate with returnDocument: 'after'
+
+      const updatedCertificate = await Certificate.findOneAndUpdate(
+        { certificateHash: hash },
+        {
+          status: "revoked",
+          revocationReason: reason,
+          revokedAt: new Date(),
+          revokedBy: revokedBy,
+          revocationType: "batch",
+          transactionHash: transactionHash || certificate.transactionHash,
+          blockNumber: blockNumber || certificate.blockNumber,
+        },
+        {
+          new: true,
+          returnDocument: "after", // Add this to fix deprecation warning
+        },
+      );
+
+      // Update stats
+      // Note: We don't decrement verifiedStudents for batch certificates
+      // because the Merkle Root is still valid
+
+      return res.status(200).json({
+        success: true,
+        message: "Certificate revoked successfully (batch certificate)",
+        data: {
+          certificateHash: hash,
+          status: "revoked",
+          revocationReason: reason,
+          revokedAt: updatedCertificate.revokedAt,
+          revokedBy: revokedBy,
+          revocationType: "batch",
+          isBatchCertificate: true,
+          merkleRoot: certificate.merkleRoot,
+          batchId: certificate.batchId,
+          leafIndex: certificate.leafIndex,
+          transactionHash: transactionHash,
+          blockNumber: blockNumber,
+          certificate: updatedCertificate,
+        },
+      });
+    } else {
+      // ============================================================
+      // SINGLE CERTIFICATE REVOCATION - BLOCKCHAIN + MUTABLE STATE
+      // ============================================================
+      console.log(`📄 Single certificate detected`);
+
+      try {
+        // Step 1: Revoke on blockchain
+        await blockchainConfig.initialize();
+        const contract = blockchainConfig.getContract();
+
+        const tx = await contract.revokeCertificate(
+          blockchainHash,
+          reason
+        );
+        transactionHash = tx.hash;
+        const receipt = await tx.wait();
+        blockNumber = receipt.blockNumber;
+        console.log(`✅ Blockchain revocation confirmed: ${transactionHash}`);
+
+        // Step 2: Update MongoDB
+        const updatedCertificate = await Certificate.findOneAndUpdate(
+          { certificateHash: hash },
+          {
+            status: "revoked",
+            revocationReason: reason,
+            revokedAt: new Date(),
+            revokedBy: revokedBy,
+            revocationType: 'single',
+            transactionHash: transactionHash,
+            blockNumber: blockNumber,
+          },
+          { new: true }
+        );
+
+        // Step 3: Update stats
+        // Decrement verified students count
+        // This is handled in the frontend
+
+        return res.status(200).json({
+          success: true,
+          message: "Certificate revoked successfully (single certificate)",
+          data: {
+            certificateHash: hash,
+            status: "revoked",
+            revocationReason: reason,
+            revokedAt: updatedCertificate.revokedAt,
+            revokedBy: revokedBy,
+            revocationType: 'single',
+            transactionHash: transactionHash,
+            blockNumber: blockNumber,
+            certificate: updatedCertificate,
+          },
+        });
+
+      } catch (blockchainError) {
+        console.error(`❌ Blockchain revocation failed: ${blockchainError.message}`);
+        
+        // For single certificates, blockchain revocation is required
+        return res.status(500).json({
+          success: false,
+          message: `Blockchain revocation failed: ${blockchainError.message}`,
+          error: blockchainError.message,
+        });
+      }
+    }
+
   } catch (error) {
     console.error("Revocation error:", error);
     res.status(500).json({

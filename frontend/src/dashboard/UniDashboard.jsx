@@ -1601,6 +1601,18 @@ const UniversityDashboard = () => {
                             <div
                               key={student._id}
                               onClick={() => {
+                                if (student.isBatchCertificate) {
+                                  // Show warning for batch certificate
+                                  if (
+                                    !confirm(
+                                      `⚠️ This certificate is part of a batch (Batch ID: ${student.batchId || "N/A"}).\n\n` +
+                                        `Revoking will mark it as revoked in the database but will NOT invalidate the blockchain Merkle Root.\n\n` +
+                                        `Continue?`,
+                                    )
+                                  ) {
+                                    return;
+                                  }
+                                }
                                 setSelectedStudent(student);
                                 setTargetRollToRevoke(
                                   `${student.studentName} (${student.registrationNumber})`,
@@ -1617,10 +1629,23 @@ const UniversityDashboard = () => {
                                   Reg: {student.registrationNumber} | Roll:{" "}
                                   {student.rollNumber}
                                 </p>
+                                {student.isBatchCertificate && (
+                                  <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                                    Batch Certificate
+                                  </span>
+                                )}
                               </div>
-                              <span className="text-xs text-slate-400">
-                                {student.degree}
-                              </span>
+                              <div className="text-right">
+                                <span className="text-xs text-slate-400">
+                                  {student.degree}
+                                </span>
+                                {student.isBatchCertificate && (
+                                  <div className="text-[10px] text-slate-400">
+                                    Batch ID:{" "}
+                                    {student.batchId?.substring(0, 10)}...
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>

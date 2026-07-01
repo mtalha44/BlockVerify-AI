@@ -121,6 +121,15 @@ const certificateSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    revokedBy: {
+      type: String,
+      default: null,
+    },
+    revocationType: {
+      type: String,
+      enum: ["single", "batch", null],
+      default: null,
+    },
 
     // =====================================================
     // OCR DATA

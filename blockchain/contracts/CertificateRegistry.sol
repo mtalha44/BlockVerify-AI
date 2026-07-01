@@ -61,6 +61,18 @@ contract CertificateRegistry {
         string reason,
         uint256 timestamp
     );
+
+// ============================================================
+// NEW EVENT FOR BATCH CERTIFICATE REVOCATION AUDIT
+// ============================================================
+
+event BatchCertificateRevoked(
+    bytes32 indexed certificateHash,
+    string reason,
+    address indexed revokedBy,
+    uint256 timestamp,
+    string batchId
+);
     
     constructor() {
         batchIdCounter = 0;
@@ -296,4 +308,24 @@ contract CertificateRegistry {
             issuerTotalBatches[_issuer]
         );
     }
+
+    function logCertificateRevocation(
+    bytes32 _certificateHash,
+    string memory _reason,
+    string memory _batchId
+) external {
+    require(_certificateHash != bytes32(0), "Invalid hash");
+    require(bytes(_reason).length > 0, "Reason required");
+    
+    // This only emits an event - no state change
+    // Blockchain as immutable audit layer
+    emit BatchCertificateRevoked(
+        _certificateHash,
+        _reason,
+        msg.sender,
+        block.timestamp,
+        _batchId
+    );
+}
+
 }
