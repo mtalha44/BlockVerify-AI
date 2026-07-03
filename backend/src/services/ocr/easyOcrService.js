@@ -1,4 +1,6 @@
 // backend/src/services/ocr/easyOcrService.js
+// Make sure this is the complete file with proper error handling
+
 import axios from "axios";
 import FormData from "form-data";
 import fs from "fs";
@@ -34,7 +36,7 @@ class EasyOCRService {
       console.warn(`⚠️ OCR Service not available: ${error.message}`);
       console.warn(`💡 Make sure OCR service is running on port 8000`);
       console.warn(
-        `💡 Run: cd backend/ocr-service && venv\\Scripts\\activate && python main.py`,
+        `💡 Run: cd backend/ocr-service && source venv/bin/activate && python main.py`,
       );
 
       this.connectionAttempts++;
@@ -45,7 +47,6 @@ class EasyOCRService {
             this.maxAttempts
           }...`,
         );
-        // Wait 2 seconds and retry
         await new Promise((resolve) => setTimeout(resolve, 2000));
         return this.initialize();
       }
@@ -104,8 +105,8 @@ class EasyOCRService {
         success: true,
         fields: result.fields,
         text: result.text,
-        confidence: result.confidence,
-        processingTime: result.processing_time,
+        confidence: result.confidence || 85,
+        processingTime: result.processing_time || 0,
       };
     } catch (error) {
       console.error("❌ OCR error:", error.message);
@@ -114,7 +115,7 @@ class EasyOCRService {
       if (error.code === "ECONNREFUSED" || error.code === "ECONNRESET") {
         console.error("💡 OCR Service is not running or not accessible");
         console.error(
-          "💡 Start OCR service with: cd backend/ocr-service && venv\\Scripts\\activate && python main.py",
+          "💡 Start OCR service with: cd backend/ocr-service && source venv/bin/activate && python main.py",
         );
       }
 

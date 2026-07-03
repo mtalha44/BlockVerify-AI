@@ -1,4 +1,4 @@
-// middleware/authMiddleware.js
+// backend/src/middleware/authMiddleware.js
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
@@ -16,6 +16,7 @@ const protect = async (req, res, next) => {
 
     if (!token) {
       return res.status(401).json({
+        success: false,
         message: "Not authorized, no token provided",
       });
     }
@@ -26,12 +27,14 @@ const protect = async (req, res, next) => {
 
     if (!req.user) {
       return res.status(401).json({
+        success: false,
         message: "User no longer exists",
       });
     }
 
     if (req.user.status !== "active") {
       return res.status(403).json({
+        success: false,
         message: "Account is not active",
       });
     }
@@ -42,20 +45,44 @@ const protect = async (req, res, next) => {
 
     if (error.name === "JsonWebTokenError") {
       return res.status(401).json({
+        success: false,
         message: "Invalid token",
       });
     }
 
     if (error.name === "TokenExpiredError") {
       return res.status(401).json({
+        success: false,
         message: "Token expired",
       });
     }
 
     res.status(401).json({
+      success: false,
       message: "Not authorized",
     });
   }
 };
 
-export default protect;
+// Role-based authorization middleware
+export const authorize = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized",
+      });
+    }
+
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to access this resource",
+      });
+    }
+
+    next();
+  };
+};
+
+export default protect; // Default export

@@ -5,8 +5,9 @@ import path from "path";
 class ExcelParser {
   /**
    * Read Excel file and return student records.
+   * Only extracts: studentName, fatherName, registrationNumber, rollNumber, degree, session, cgpa
    */
-  parse(filePath, universityName = "Unknown") {
+  parse(filePath) {
     // Validate file exists
     if (!filePath) {
       throw new Error("No file path provided");
@@ -44,7 +45,7 @@ class ExcelParser {
       throw new Error("Spreadsheet is empty or has no data rows.");
     }
 
-    // Validate headers
+    // Validate headers - only required fields
     const firstRow = rows[0];
     const requiredFields = ["Student Name", "Registration Number", "Degree"];
     const missingFields = requiredFields.filter(
@@ -61,12 +62,12 @@ class ExcelParser {
 
     rows.forEach((row, index) => {
       try {
-        const student = this.normalizeRow(row, universityName);
+        const student = this.normalizeRow(row);
         const validation = this.validateStudent(student);
 
         if (!validation.valid) {
           errors.push({
-            row: index + 2, // +2 because Excel rows start at 1 and header is row 1
+            row: index + 2,
             error: validation.message,
             data: row,
           });
@@ -105,8 +106,9 @@ class ExcelParser {
 
   /**
    * Convert Excel row into standard student object.
+   * Only extracts the 7 required fields
    */
-  normalizeRow(row, universityName) {
+  normalizeRow(row) {
     return {
       studentName: (
         row["Student Name"] ||
@@ -114,22 +116,43 @@ class ExcelParser {
         row["Name"] ||
         ""
       ).trim(),
-      fatherName: (row["Father Name"] || row["fatherName"] || "").trim(),
+      fatherName: (
+        row["Father Name"] ||
+        row["fatherName"] ||
+        row["Father's Name"] ||
+        ""
+      ).trim(),
       registrationNumber: (
         row["Registration Number"] ||
         row["registrationNumber"] ||
         row["Reg No"] ||
+        row["Reg #"] ||
         ""
       ).trim(),
-      rollNumber: (row["Roll Number"] || row["rollNumber"] || "").trim(),
-      degree: (row["Degree"] || row["degree"] || "").trim(),
-      session: (row["Session"] || row["session"] || "").trim(),
-      cgpa: String(row["CGPA"] || row["cgpa"] || "").trim(),
-      universityName:
-        universityName ||
-        row["University Name"] ||
-        row["universityName"] ||
-        "Unknown",
+      rollNumber: (
+        row["Roll Number"] ||
+        row["rollNumber"] ||
+        row["Roll No"] ||
+        row["Roll #"] ||
+        ""
+      ).trim(),
+      degree: (
+        row["Degree"] ||
+        row["degree"] ||
+        row["Program"] ||
+        row["Program Name"] ||
+        ""
+      ).trim(),
+      session: (
+        row["Session"] ||
+        row["session"] ||
+        row["Year"] ||
+        row["Academic Year"] ||
+        ""
+      ).trim(),
+      cgpa: String(
+        row["CGPA"] || row["cgpa"] || row["GPA"] || row["Grade"] || "",
+      ).trim(),
     };
   }
 

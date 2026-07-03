@@ -5,6 +5,7 @@ class SHA256Service {
   /**
    * Normalize student data before hashing.
    * Ensures identical data always produces the same hash.
+   * ONLY uses the 7 required fields.
    */
   normalize(student) {
     return {
@@ -27,9 +28,7 @@ class SHA256Service {
       degree: (student.degree || "").trim().toLowerCase(),
       session: (student.session || "").trim().toLowerCase(),
       cgpa: String(student.cgpa || "").trim(),
-      university_name: (student.universityName || student.university_name || "")
-        .trim()
-        .toLowerCase(),
+      // IMPORTANT: NO university_name field here
     };
   }
 

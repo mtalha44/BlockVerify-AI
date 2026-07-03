@@ -1,34 +1,32 @@
 // backend/src/services/verification/verificationService.js
 import Certificate from "../../models/Certificate.js";
 import blockchainConfig from "../../config/blockchain.js";
-import { createMerkleTreeFromStudents } from "../blockchain/merkleService.js";
+import sha256Service from "../hash/sha256Service.js";
 
 class VerificationService {
   /**
-   * Verify certificate by hash
+   * Verify certificate by hash - supports both single and batch
    */
-  // backend/src/services/verification/verificationService.js
-  // Update verifyCertificate function
-
   async verifyCertificate(hash) {
     try {
-      // Step 1: Check MongoDB first (mutable state)
+      // Step 1: Check MongoDB first
       const certificate = await Certificate.findOne({ certificateHash: hash });
 
       if (!certificate) {
         return {
           valid: false,
-          message: "Certificate not found in database",
           exists: false,
+          message: "Certificate not found in database",
         };
       }
 
-      // Step 2: Check if revoked in MongoDB
+      // Step 2: Check if revoked
       if (certificate.status === "revoked") {
         return {
           valid: false,
-          message: "Certificate has been revoked",
           exists: true,
+          isRevoked: true,
+          message: "Certificate has been revoked",
           revocationReason: certificate.revocationReason,
           revokedAt: certificate.revokedAt,
           revokedBy: certificate.revokedBy,
@@ -36,81 +34,108 @@ class VerificationService {
         };
       }
 
-      // Step 3: Verify on blockchain based on type
+      // Step 3: Verify on blockchain
+      await blockchainConfig.initialize();
+      const contract = blockchainConfig.getContract();
+
       let blockchainValid = false;
+      let verificationMethod = "unknown";
       let blockchainDetails = null;
 
-      try {
-        await blockchainConfig.initialize();
-        const contract = blockchainConfig.getContract();
+      if (certificate.isBatchCertificate && certificate.merkleRoot) {
+        // Batch certificate - verify Merkle proof
+        try {
+          const proofValid = await contract.verifyMerkleProof(
+            hash,
+            certificate.merkleProof,
+            certificate.merkleRoot,
+          );
 
-        if (certificate.isBatchCertificate) {
-          // Batch certificate - verify Merkle proof
-          if (
-            certificate.merkleRoot &&
-            certificate.merkleProof &&
-            certificate.leafIndex !== null
-          ) {
-            // Verify Merkle proof
-            const isValid = await contract.verifyMerkleProof(
-              certificate.certificateHash,
-              certificate.merkleProof,
+          if (proofValid) {
+            const batchInfo = await contract.verifyMerkleBatch(
               certificate.merkleRoot,
             );
-            blockchainValid = isValid;
-
-            // Get batch info
-            try {
-              const batchInfo = await contract.verifyMerkleBatch(
-                certificate.merkleRoot,
-              );
-              blockchainDetails = {
-                merkleRoot: certificate.merkleRoot,
-                batchId: certificate.batchId,
-                isValid: batchInfo.isValid,
-                certificateCount: batchInfo.certificateCount,
-              };
-            } catch (e) {
-              blockchainDetails = {
-                merkleRoot: certificate.merkleRoot,
-                batchId: certificate.batchId,
-                note: "Batch info not available",
-              };
-            }
+            blockchainValid = batchInfo.exists && batchInfo.isValid;
+            verificationMethod = "merkle";
+            blockchainDetails = {
+              merkleRoot: certificate.merkleRoot,
+              batchId: certificate.batchId,
+              leafIndex: certificate.leafIndex,
+              batchSize: certificate.batchLeafCount,
+              isValid: batchInfo.isValid,
+              issuer: batchInfo.issuer,
+            };
           } else {
-            // Batch certificate without proof - fallback to single verification
-            const result = await contract.verifyCertificate(
-              certificate.certificateHash,
-            );
-            blockchainValid = result.isValid;
-            blockchainDetails = result;
+            console.log("❌ Merkle proof verification failed");
           }
-        } else {
-          // Single certificate - direct verification
-          const result = await contract.verifyCertificate(
-            certificate.certificateHash,
-          );
-          blockchainValid = result.isValid;
-          blockchainDetails = result;
+        } catch (merkleError) {
+          console.error("Merkle verification error:", merkleError.message);
+          // Fallback to single verification
+          try {
+            const result = await contract.verifyCertificate(hash);
+            blockchainValid = result.exists && !result.isRevoked;
+            verificationMethod = "single-fallback";
+            blockchainDetails = result;
+          } catch (fallbackError) {
+            console.error(
+              "Fallback verification failed:",
+              fallbackError.message,
+            );
+          }
         }
-      } catch (blockchainError) {
-        console.warn(
-          `⚠️ Blockchain verification failed: ${blockchainError.message}`,
-        );
-        // If blockchain is unreachable, fallback to database status
-        blockchainValid = certificate.status === "verified";
-        blockchainDetails = { note: "Blockchain verification unavailable" };
+      } else {
+        // Single certificate - direct verification
+        try {
+          const result = await contract.verifyCertificate(hash);
+          blockchainValid = result.exists && !result.isRevoked;
+          verificationMethod = "single";
+          blockchainDetails = result;
+        } catch (error) {
+          console.error("Blockchain verification error:", error.message);
+          // Fallback to database status
+          blockchainValid = certificate.status === "verified";
+          verificationMethod = "database-fallback";
+        }
       }
 
+      const isValid = blockchainValid && certificate.status === "verified";
+
       return {
-        valid: blockchainValid && certificate.status === "verified",
+        valid: isValid,
         exists: true,
         isRevoked: certificate.status === "revoked",
-        certificate,
+        verificationMethod,
         blockchain: blockchainDetails,
+        certificate,
+        message: isValid
+          ? "Certificate verified successfully"
+          : "Certificate verification failed",
       };
     } catch (error) {
       throw new Error(`Verification failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Verify certificate from OCR data
+   */
+  async verifyFromOCR(ocrData) {
+    try {
+      // Generate hash from OCR data
+      const hash = sha256Service.generate({
+        studentName: ocrData.student_name,
+        fatherName: ocrData.father_name,
+        registrationNumber: ocrData.registration_number,
+        rollNumber: ocrData.roll_number,
+        degree: ocrData.degree,
+        session: ocrData.session,
+        cgpa: ocrData.cgpa,
+        universityName: ocrData.university_name,
+      });
+
+      return await this.verifyCertificate(hash);
+    } catch (error) {
+      throw new Error(`OCR verification failed: ${error.message}`);
     }
   }
 
@@ -130,28 +155,36 @@ class VerificationService {
         };
       }
 
-      // Rebuild tree from batch
-      const batchCertificates = await Certificate.find({
-        merkleRoot: certificate.merkleRoot,
-      }).sort({ leafIndex: 1 });
-
-      if (batchCertificates.length === 0) {
-        return {
-          valid: false,
-          message: "Batch not found",
-        };
-      }
-
-      // Verify on blockchain
       await blockchainConfig.initialize();
       const contract = blockchainConfig.getContract();
 
-      const isValid = await contract.verifyMerkleBatch(certificate.merkleRoot);
+      // Verify proof
+      const proofValid = await contract.verifyMerkleProof(
+        certificate.certificateHash,
+        certificate.merkleProof,
+        certificate.merkleRoot,
+      );
+
+      if (proofValid) {
+        // Get batch info
+        const batchInfo = await contract.verifyMerkleBatch(
+          certificate.merkleRoot,
+        );
+        return {
+          valid: true,
+          batchInfo: {
+            exists: batchInfo.exists,
+            isValid: batchInfo.isValid,
+            issuer: batchInfo.issuer,
+            certificateCount: batchInfo.certificateCount,
+            timestamp: batchInfo.timestamp,
+          },
+        };
+      }
 
       return {
-        valid: isValid,
-        batchSize: batchCertificates.length,
-        certificate,
+        valid: false,
+        message: "Invalid Merkle proof",
       };
     } catch (error) {
       throw new Error(`Merkle proof verification failed: ${error.message}`);
@@ -165,14 +198,37 @@ class VerificationService {
     const certificates = await Certificate.find({ merkleRoot })
       .sort({ leafIndex: 1 })
       .select(
-        "studentName registrationNumber degree certificateHash leafIndex",
+        "studentName registrationNumber degree certificateHash leafIndex status",
       );
 
-    return {
-      total: certificates.length,
-      certificates,
-      merkleRoot,
-    };
+    // Verify batch on blockchain
+    try {
+      await blockchainConfig.initialize();
+      const contract = blockchainConfig.getContract();
+      const batchInfo = await contract.verifyMerkleBatch(merkleRoot);
+
+      return {
+        total: certificates.length,
+        certificates,
+        merkleRoot,
+        blockchainInfo: {
+          exists: batchInfo.exists,
+          isValid: batchInfo.isValid,
+          issuer: batchInfo.issuer,
+          certificateCount: batchInfo.certificateCount,
+          timestamp: batchInfo.timestamp,
+        },
+      };
+    } catch (error) {
+      return {
+        total: certificates.length,
+        certificates,
+        merkleRoot,
+        blockchainInfo: {
+          error: "Blockchain verification failed",
+        },
+      };
+    }
   }
 }
 

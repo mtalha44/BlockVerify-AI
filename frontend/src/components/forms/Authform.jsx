@@ -1,7 +1,8 @@
-import { useState } from 'react';
-import { Lock, Mail, User, Eye, EyeOff } from 'lucide-react';
-import API from '../../api/axios';
-import { useNavigate } from 'react-router-dom';
+// frontend/src/components/forms/Authform.jsx
+import { useState } from "react";
+import { Lock, Mail, User, Eye, EyeOff } from "lucide-react";
+import API from "../../api/axios";
+import { useNavigate } from "react-router-dom";
 
 const AuthForm = ({ type }) => {
   const [showPassword, setShowPassword] = useState(false);
@@ -49,19 +50,47 @@ const AuthForm = ({ type }) => {
           password: formData.password,
         });
 
+        console.log("Signup response:", res.data);
+
+        // Store user data
         localStorage.setItem("user", JSON.stringify(res.data.user));
-        navigate("/user-dashboard", { replace: true });
+
+        // Navigate based on role
+        const userRole = res.data.user.role;
+        if (userRole === "admin") {
+          navigate("/admin", { replace: true });
+        } else if (userRole === "university") {
+          navigate("/university-dashboard", { replace: true });
+        } else {
+          navigate("/user-dashboard", { replace: true });
+        }
       }
 
       if (type === "login") {
+        console.log("Attempting login with:", formData.email);
+
         const res = await API.post("/auth/login", {
           email: formData.email,
           password: formData.password,
         });
 
+        console.log("Login response:", res.data);
+
+        // Store user data
         localStorage.setItem("user", JSON.stringify(res.data.user));
 
+        // Clear form
+        setFormData({
+          fullName: "",
+          institution: "",
+          email: "",
+          password: "",
+          confirmPassword: "",
+        });
+
+        // Navigate based on role
         const userRole = res.data.user.role;
+        console.log("User role:", userRole);
 
         if (userRole === "admin") {
           navigate("/admin", { replace: true });
@@ -70,16 +99,9 @@ const AuthForm = ({ type }) => {
         } else {
           navigate("/user-dashboard", { replace: true });
         }
-
-        setFormData({
-          fullName: "",
-          institution: "",
-          email: "",
-          password: "",
-          confirmPassword: "",
-        });
       }
     } catch (error) {
+      console.error("Auth error:", error);
       const message =
         error?.response?.data?.message ||
         error.message ||
@@ -269,7 +291,11 @@ const AuthForm = ({ type }) => {
           disabled={loading}
           className="w-full custom-btn font-medium py-3 px-4 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? "Please wait..." : (type === "login" ? "Sign In" : "Create Account")}
+          {loading ?
+            "Please wait..."
+          : type === "login" ?
+            "Sign In"
+          : "Create Account"}
         </button>
 
         {type === "login" ?

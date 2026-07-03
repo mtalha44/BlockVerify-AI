@@ -1,6 +1,4 @@
 // backend/src/services/certificate/certificateBatchService.js
-// Update the importExcel function - specifically the blockchain call part
-
 import fs from "fs";
 import Certificate from "../../models/Certificate.js";
 import excelParser from "../excel/excelParser.js";
@@ -11,6 +9,8 @@ import { createMerkleTreeFromStudents } from "../blockchain/merkleService.js";
 class CertificateBatchService {
   /**
    * Import certificates from Excel file
+   * Only stores the 7 fields: studentName, fatherName, registrationNumber,
+   * rollNumber, degree, session, cgpa
    */
   async importExcel(file, user) {
     try {
@@ -24,9 +24,9 @@ class CertificateBatchService {
       excelParser.validateFile(file);
 
       // -----------------------------
-      // 2. Parse Excel
+      // 2. Parse Excel - NO university name
       // -----------------------------
-      const parsed = excelParser.parse(file.path, user.institution);
+      const parsed = excelParser.parse(file.path);
 
       if (parsed.students.length === 0) {
         const errorMsg =
@@ -42,11 +42,23 @@ class CertificateBatchService {
 
       // -----------------------------
       // 3. Generate SHA256 Hash for each student
+      //    Using ONLY the 7 fields
       // -----------------------------
       const students = parsed.students.map((student) => {
-        const hash = sha256Service.generate(student);
+        // Create a clean object with ONLY the 7 fields
+        const cleanStudent = {
+          studentName: student.studentName,
+          fatherName: student.fatherName || "",
+          registrationNumber: student.registrationNumber,
+          rollNumber: student.rollNumber || "",
+          degree: student.degree,
+          session: student.session || "",
+          cgpa: student.cgpa || "",
+        };
+
+        const hash = sha256Service.generate(cleanStudent);
         return {
-          ...student,
+          ...cleanStudent,
           hash,
         };
       });
@@ -67,19 +79,17 @@ class CertificateBatchService {
       await blockchainConfig.initialize();
       const contract = blockchainConfig.getContract();
 
-      // Prepare metadata
+      // Prepare metadata - store university info in metadata, NOT in certificate data
       const metadata = JSON.stringify({
-        university: user.institution,
+        university: user.institution || user.universityName || "Unknown",
         universityId: user.universityId || user.id,
         totalStudents: students.length,
         uploadedAt: new Date().toISOString(),
         issuer: user.email || user.id,
       });
 
-      // FIX: Call with correct parameter order: (bytes32, string, uint256)
       console.log(`📤 Sending transaction with:`);
       console.log(`   merkleRoot: ${merkleRoot}`);
-      console.log(`   metadata length: ${metadata.length}`);
       console.log(`   studentCount: ${students.length}`);
 
       const tx = await contract.storeMerkleBatch(
@@ -96,6 +106,7 @@ class CertificateBatchService {
 
       // -----------------------------
       // 6. Save Certificates to Database
+      //    Store ONLY the 7 fields
       // -----------------------------
       const savedCertificates = [];
       const savedErrors = [];
@@ -106,21 +117,27 @@ class CertificateBatchService {
 
         try {
           const certificate = await Certificate.create({
+            // ONLY these fields are stored
             certificateHash: student.hash,
             studentName: student.studentName,
             fatherName: student.fatherName || "",
             registrationNumber: student.registrationNumber,
             rollNumber: student.rollNumber || "",
             degree: student.degree,
-            universityName:
-              student.universityName || user.institution || "Unknown",
             session: student.session || "",
             cgpa: student.cgpa || "",
+
+            // University info is stored for tracking but NOT used in hash
             universityId: user.universityId || user.id,
             issuer: user.institution || "Unknown",
+            universityName: user.institution || "Unknown", // Keep for database tracking
+
+            // Blockchain info
             transactionHash: tx.hash,
             blockNumber: receipt.blockNumber,
             status: "verified",
+
+            // Merkle info
             merkleRoot: merkleRoot,
             merkleProof: proof,
             leafIndex: i,

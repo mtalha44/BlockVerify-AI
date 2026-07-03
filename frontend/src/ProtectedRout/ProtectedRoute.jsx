@@ -16,27 +16,69 @@ const ProtectedRoute = ({ children, allowedRoles, redirectTo = "/login" }) => {
 
     const verifyUser = async () => {
       try {
-        const res = await API.get("/auth/me");
-        const user = res.data.user;
+        // First check if user exists in localStorage
+        const localUser = localStorage.getItem("user");
+        let user = null;
 
-        // Calculate hasAllowedRole AFTER getting user
-        const roles = allowedRolesKey ? allowedRolesKey.split("|") : null;
-        const hasAllowedRole = !roles || roles.includes(user.role);
+        if (localUser) {
+          try {
+            user = JSON.parse(localUser);
+            console.log("ProtectedRoute - User from localStorage:", user);
+          } catch (e) {
+            console.error("Error parsing user from localStorage:", e);
+          }
+        }
 
-        // Debug logs
-        console.log("ProtectedRoute - User:", user);
-        console.log("ProtectedRoute - User Role:", user.role);
-        console.log("ProtectedRoute - Allowed Roles:", allowedRoles);
-        console.log("ProtectedRoute - Has allowed role?", hasAllowedRole);
+        // If we have a user in localStorage, use it
+        if (user) {
+          const roles = allowedRolesKey ? allowedRolesKey.split("|") : null;
+          const hasAllowedRole = !roles || roles.includes(user.role);
 
-        localStorage.setItem("user", JSON.stringify(user));
+          if (isMounted) {
+            setAuthState({
+              loading: false,
+              user,
+              authorized: hasAllowedRole,
+            });
+          }
+          return;
+        }
 
-        if (isMounted) {
-          setAuthState({
-            loading: false,
-            user,
-            authorized: hasAllowedRole,
-          });
+        // If no user in localStorage, try to get from API
+        try {
+          const res = await API.get("/auth/me");
+          user = res.data.user;
+          console.log("ProtectedRoute - User from API:", user);
+
+          localStorage.setItem("user", JSON.stringify(user));
+
+          const roles = allowedRolesKey ? allowedRolesKey.split("|") : null;
+          const hasAllowedRole = !roles || roles.includes(user.role);
+
+          if (isMounted) {
+            setAuthState({
+              loading: false,
+              user,
+              authorized: hasAllowedRole,
+            });
+          }
+        } catch (apiError) {
+          console.error("API auth verification failed:", apiError);
+          // If API fails but we have local user, use it
+          if (user) {
+            const roles = allowedRolesKey ? allowedRolesKey.split("|") : null;
+            const hasAllowedRole = !roles || roles.includes(user.role);
+
+            if (isMounted) {
+              setAuthState({
+                loading: false,
+                user,
+                authorized: hasAllowedRole,
+              });
+            }
+          } else {
+            throw apiError;
+          }
         }
       } catch (error) {
         console.error("Auth verification failed:", error);

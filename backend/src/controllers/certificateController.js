@@ -1,22 +1,26 @@
 // backend/src/controllers/certificateController.js
 import Certificate from "../models/Certificate.js";
 import BatchJob from "../models/BatchJob.js";
+import certificateBatchService from "../services/certificate/certificateBatchService.js";
 import easyOCRService from "../services/ocr/easyOcrService.js";
 import blockchainConfig from "../config/blockchain.js";
+import sha256Service from "../services/hash/sha256Service.js";
 import fs from "fs";
 import xlsx from "xlsx";
 import { createMerkleTreeFromStudents } from "../services/blockchain/merkleService.js";
 import crypto from "crypto";
 
-// Upload single certificate
-
-// backend/src/controllers/certificateController.js
-// Update the uploadSingleCertificate function - remove the certificateExists check
-
-export const uploadSingleCertificate = async (req, res) => {
+// ============================================================
+// OCR ONLY - For user verification flow
+// ============================================================
+export const uploadCertificateForVerification = async (req, res) => {
   try {
     const { file } = req;
-    const universityId = req.user?.universityId || req.user?.id;
+    const userId = req.user?.id;
+
+    console.log("📄 Upload request received:");
+    console.log("File:", file ? file.originalname : "No file");
+    console.log("User:", userId);
 
     if (!file) {
       return res.status(400).json({
@@ -36,86 +40,12 @@ export const uploadSingleCertificate = async (req, res) => {
     console.log(`📄 File path: ${file.path}`);
     console.log(`📄 File size: ${(file.size / 1024).toFixed(2)} KB`);
 
-    // Step 1: OCR Processing
-    console.log("🔍 Running OCR...");
+    // REAL OCR PROCESSING
+    console.log("🔍 Running OCR via EasyOCR service...");
+
     const ocrResult = await easyOCRService.extractFields(file.path);
 
-    if (!ocrResult.success) {
-      throw new Error(ocrResult.error || "OCR processing failed");
-    }
-
-    const fields = ocrResult.fields;
-    console.log("📊 Extracted fields:", fields);
-
-    // Step 2: Prepare certificate data
-    const certificateData = {
-      student_name: fields.student_name || "Unknown",
-      father_name: fields.father_name || "",
-      registration_number: fields.registration_number || `REG-${Date.now()}`,
-      roll_number: fields.roll_number || "",
-      degree: fields.degree || "Not Specified",
-      university_name: fields.university_name || req.user?.institution || "Unknown",
-      session: fields.session || "",
-      cgpa: fields.cgpa || "",
-      status: "verified",
-      issuer: req.user?.institution || "Unknown",
-      issued_at: new Date().toISOString(),
-    };
-
-    // Step 3: Generate Hash
-    const certificateHash = crypto
-      .createHash("sha256")
-      .update(JSON.stringify(certificateData))
-      .digest("hex");
-
-    console.log(`🔑 Hash: ${certificateHash.substring(0, 16)}...`);
-
-    // Step 4: Store on Blockchain
-    console.log("⛓️ Storing on blockchain...");
-    await blockchainConfig.initialize();
-    const contract = blockchainConfig.getContract();
-
-    // IMPORTANT: Remove certificateExists check - it doesn't exist in your contract
-    // Instead, try to issue and handle duplicate error if it occurs
-
-const metadata = JSON.stringify({
-  registrationNumber: certificateData.registration_number,
-  studentName: certificateData.student_name,
-  degree: certificateData.degree,
-  session: certificateData.session,
-  cgpa: certificateData.cgpa,
-});
-
-const tx = await contract.storeCertificate("0x" + certificateHash, metadata);
-
-    console.log(`📤 Tx sent: ${tx.hash}`);
-    const receipt = await tx.wait();
-    console.log(`✅ Confirmed: ${receipt.blockNumber}`);
-    console.log(`✅ Gas used: ${receipt.gasUsed.toString()}`);
-
-    // Step 5: Save to Database
-    const certificate = await Certificate.create({
-      certificateHash,
-      studentName: certificateData.student_name,
-      fatherName: certificateData.father_name,
-      registrationNumber: certificateData.registration_number,
-      rollNumber: certificateData.roll_number,
-      degree: certificateData.degree,
-      universityName: certificateData.university_name,
-      session: certificateData.session,
-      cgpa: certificateData.cgpa,
-      status: certificateData.status,
-      universityId,
-      issuer: certificateData.issuer,
-      issueDate: new Date(),
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-      ocrData: fields,
-      confidence: ocrResult.confidence || 0,
-      processingTime: ocrResult.processingTime || 0,
-    });
-
-    // Step 6: Cleanup
+    // Clean up file immediately after OCR
     try {
       if (fs.existsSync(file.path)) {
         fs.unlinkSync(file.path);
@@ -125,32 +55,36 @@ const tx = await contract.storeCertificate("0x" + certificateHash, metadata);
       console.warn("File cleanup warning:", cleanupError.message);
     }
 
-    // Step 7: Response
-    const responseData = {
-      student_name: certificateData.student_name,
-      father_name: certificateData.father_name,
-      registration_number: certificateData.registration_number,
-      roll_number: certificateData.roll_number,
-      degree: certificateData.degree,
-      university_name: certificateData.university_name,
-      session: certificateData.session,
-      cgpa: certificateData.cgpa,
-      status: certificateData.status,
-      certificateHash: certificateHash,
-      transactionHash: receipt.hash,
-      blockNumber: receipt.blockNumber,
-      processingTime: ocrResult.processingTime,
-      confidence: ocrResult.confidence,
-    };
+    if (!ocrResult.success) {
+      console.error("❌ OCR failed:", ocrResult.error);
+      return res.status(400).json({
+        success: false,
+        message: ocrResult.error || "OCR processing failed. Please try again.",
+      });
+    }
 
+    const fields = ocrResult.fields;
+    console.log("📊 Extracted fields:", fields);
+    console.log(`⏱️ Processing time: ${ocrResult.processingTime}s`);
+
+    // Return ONLY the 7 fields (NO university_name)
     res.status(200).json({
       success: true,
-      message: "Certificate uploaded and verified successfully",
-      data: responseData,
+      message: "OCR completed successfully",
+      data: {
+        student_name: fields.student_name || "",
+        father_name: fields.father_name || "",
+        registration_number: fields.registration_number || "",
+        roll_number: fields.roll_number || "",
+        degree: fields.degree || "",
+        session: fields.session || "",
+        cgpa: fields.cgpa || "",
+      },
+      confidence: ocrResult.confidence || 85,
+      processingTime: ocrResult.processingTime || 0,
     });
-
   } catch (error) {
-    console.error("Upload error:", error);
+    console.error("❌ Upload error:", error);
 
     // Cleanup file on error
     if (req.file?.path && fs.existsSync(req.file.path)) {
@@ -169,8 +103,367 @@ const tx = await contract.storeCertificate("0x" + certificateHash, metadata);
   }
 };
 
-// Verify certificate by hash
-// Update verifyCertificateByHash - remove methods that don't exist
+// ============================================================
+// SINGLE CERTIFICATE UPLOAD - OCR + BLOCKCHAIN STORAGE
+// ============================================================
+export const uploadSingleCertificate = async (req, res) => {
+  try {
+    const { file } = req;
+    const universityId = req.user?.universityId || req.user?.id;
+    const user = req.user;
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        message: "No file uploaded",
+      });
+    }
+
+    if (!fs.existsSync(file.path)) {
+      return res.status(400).json({
+        success: false,
+        message: "File upload failed. Please try again.",
+      });
+    }
+
+    console.log(`📄 Processing certificate: ${file.originalname}`);
+    console.log(`📄 File path: ${file.path}`);
+    console.log(`📄 File size: ${(file.size / 1024).toFixed(2)} KB`);
+    console.log(`👤 University ID: ${universityId}`);
+
+    // Step 1: OCR Processing
+    console.log("🔍 Running OCR...");
+    const ocrResult = await easyOCRService.extractFields(file.path);
+
+    if (!ocrResult.success) {
+      throw new Error(ocrResult.error || "OCR processing failed");
+    }
+
+    const fields = ocrResult.fields;
+    console.log("📊 Extracted fields:", fields);
+
+    // Step 2: Prepare certificate data - ONLY 7 FIELDS
+    const certificateData = {
+      student_name: fields.student_name || "Unknown",
+      father_name: fields.father_name || "",
+      registration_number: fields.registration_number || `REG-${Date.now()}`,
+      roll_number: fields.roll_number || "",
+      degree: fields.degree || "Not Specified",
+      session: fields.session || "",
+      cgpa: fields.cgpa || "",
+    };
+
+    console.log("📝 Certificate data for hash:", certificateData);
+
+    // Step 3: Generate Hash using sha256Service
+    const certificateHash = sha256Service.generate(certificateData);
+    console.log(`🔑 Hash: ${certificateHash}`);
+
+    // Step 4: Store on Blockchain
+    console.log("⛓️ Storing on blockchain...");
+    await blockchainConfig.initialize();
+    const contract = blockchainConfig.getContract();
+
+    const metadata = JSON.stringify({
+      registrationNumber: certificateData.registration_number,
+      studentName: certificateData.student_name,
+      degree: certificateData.degree,
+      session: certificateData.session,
+      cgpa: certificateData.cgpa,
+      university: user?.institution || "Unknown",
+      universityId: universityId,
+      uploadedBy: user?.email || user?.id || "Unknown",
+      timestamp: new Date().toISOString(),
+    });
+
+    console.log(`📤 Sending transaction to store certificate...`);
+    console.log(`   Hash: ${certificateHash}`);
+    console.log(`   Metadata: ${metadata.substring(0, 100)}...`);
+
+    const tx = await contract.storeCertificate(certificateHash, metadata);
+    console.log(`📤 Tx sent: ${tx.hash}`);
+
+    const receipt = await tx.wait();
+    console.log(`✅ Confirmed: ${receipt.blockNumber}`);
+    console.log(`✅ Gas used: ${receipt.gasUsed.toString()}`);
+
+    // Step 5: Save to Database
+    const certificate = await Certificate.create({
+      certificateHash,
+      studentName: certificateData.student_name,
+      fatherName: certificateData.father_name,
+      registrationNumber: certificateData.registration_number,
+      rollNumber: certificateData.roll_number,
+      degree: certificateData.degree,
+      session: certificateData.session,
+      cgpa: certificateData.cgpa,
+      universityName: user?.institution || "Unknown",
+      universityId: universityId,
+      issuer: user?.institution || "Unknown",
+      issueDate: new Date(),
+      transactionHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      status: "verified",
+      ocrData: fields,
+      confidence: ocrResult.confidence || 0,
+      processingTime: ocrResult.processingTime || 0,
+    });
+
+    console.log(`💾 Certificate saved to database with ID: ${certificate._id}`);
+
+    // Step 6: Cleanup file
+    try {
+      if (fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+        console.log(`🗑️ Cleaned up: ${file.path}`);
+      }
+    } catch (cleanupError) {
+      console.warn("File cleanup warning:", cleanupError.message);
+    }
+
+    // Step 7: Response
+    const responseData = {
+      success: true,
+      message: "Certificate uploaded and stored on blockchain successfully",
+      data: {
+        student_name: certificateData.student_name,
+        father_name: certificateData.father_name,
+        registration_number: certificateData.registration_number,
+        roll_number: certificateData.roll_number,
+        degree: certificateData.degree,
+        session: certificateData.session,
+        cgpa: certificateData.cgpa,
+        status: "verified",
+        certificateHash: certificateHash,
+        transactionHash: receipt.hash,
+        blockNumber: receipt.blockNumber,
+        processingTime: ocrResult.processingTime,
+        confidence: ocrResult.confidence,
+      },
+    };
+
+    console.log("✅ Upload complete, sending response");
+    res.status(200).json(responseData);
+  } catch (error) {
+    console.error("❌ Upload error:", error);
+    console.error("Error stack:", error.stack);
+
+    // Cleanup file on error
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log(`🗑️ Cleaned up on error: ${req.file.path}`);
+      } catch (cleanupError) {
+        console.warn("File cleanup warning:", cleanupError.message);
+      }
+    }
+
+    // Check for specific blockchain errors
+    let errorMessage = error.message || "Failed to process certificate";
+    if (
+      error.code === "ACTION_REJECTED" ||
+      error.message?.includes("user rejected")
+    ) {
+      errorMessage = "Transaction was rejected. Please confirm in your wallet.";
+    } else if (error.message?.includes("insufficient funds")) {
+      errorMessage = "Insufficient funds in wallet to pay gas fees.";
+    } else if (error.message?.includes("already exists")) {
+      errorMessage = "This certificate already exists on the blockchain.";
+    }
+
+    res.status(500).json({
+      success: false,
+      message: errorMessage,
+      error: error.message,
+    });
+  }
+};
+
+// ============================================================
+// BULK UPLOAD CERTIFICATES
+// ============================================================
+export const bulkUploadCertificates = async (req, res) => {
+  try {
+    const { files } = req;
+    const universityId = req.user?.universityId || req.user?.id;
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No files uploaded",
+      });
+    }
+
+    console.log(`📁 Processing ${files.length} certificates in bulk...`);
+
+    const concurrencyLimit = 5;
+    const results = [];
+    const errors = [];
+
+    const processFile = async (file) => {
+      const fileResult = {
+        filename: file.originalname,
+        success: false,
+        error: null,
+        data: null,
+      };
+
+      try {
+        if (!fs.existsSync(file.path)) {
+          throw new Error("File not found on disk");
+        }
+
+        // Step 1: OCR
+        const ocrResult = await easyOCRService.extractFields(file.path);
+        if (!ocrResult.success) {
+          throw new Error(ocrResult.error || "OCR failed");
+        }
+
+        const fields = ocrResult.fields;
+
+        // Step 2: Prepare data - ONLY 7 FIELDS
+        const certificateData = {
+          student_name: fields.student_name || "Unknown",
+          father_name: fields.father_name || "",
+          registration_number:
+            fields.registration_number || `REG-${Date.now()}`,
+          roll_number: fields.roll_number || "",
+          degree: fields.degree || "Not Specified",
+          session: fields.session || "",
+          cgpa: fields.cgpa || "",
+        };
+
+        // Step 3: Generate Hash using sha256Service
+        const certificateHash = sha256Service.generate(certificateData);
+
+        // Step 4: Store on Blockchain
+        await blockchainConfig.initialize();
+        const contract = blockchainConfig.getContract();
+
+        const metadata = JSON.stringify({
+          registrationNumber: certificateData.registration_number,
+          studentName: certificateData.student_name,
+          degree: certificateData.degree,
+          session: certificateData.session,
+          cgpa: certificateData.cgpa,
+          university: req.user?.institution || "Unknown",
+          universityId: universityId,
+        });
+
+        const tx = await contract.storeCertificate(certificateHash, metadata);
+        const receipt = await tx.wait();
+
+        // Step 5: Save to Database
+        const certificate = await Certificate.create({
+          certificateHash,
+          studentName: certificateData.student_name,
+          fatherName: certificateData.father_name,
+          registrationNumber: certificateData.registration_number,
+          rollNumber: certificateData.roll_number,
+          degree: certificateData.degree,
+          session: certificateData.session,
+          cgpa: certificateData.cgpa,
+          universityName: req.user?.institution || "Unknown",
+          universityId,
+          issuer: req.user?.institution || "Unknown",
+          issueDate: new Date(),
+          transactionHash: receipt.hash,
+          blockNumber: receipt.blockNumber,
+          status: "verified",
+          ocrData: fields,
+          confidence: ocrResult.confidence || 0,
+          processingTime: ocrResult.processingTime || 0,
+        });
+
+        fileResult.success = true;
+        fileResult.data = {
+          studentName: certificateData.student_name,
+          registrationNumber: certificateData.registration_number,
+          degree: certificateData.degree,
+          certificateHash: certificateHash,
+          transactionHash: receipt.hash,
+          blockNumber: receipt.blockNumber,
+        };
+
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+
+        return fileResult;
+      } catch (error) {
+        console.error(
+          `❌ Error processing ${file.originalname}:`,
+          error.message,
+        );
+        fileResult.error = error.message;
+
+        if (fs.existsSync(file.path)) {
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {}
+        }
+
+        return fileResult;
+      }
+    };
+
+    const fileQueue = [...files];
+    while (fileQueue.length > 0) {
+      const batch = fileQueue.splice(0, concurrencyLimit);
+      const batchPromises = batch.map((file) => processFile(file));
+      const batchResults = await Promise.all(batchPromises);
+
+      batchResults.forEach((result) => {
+        if (result.success) {
+          results.push(result.data);
+        } else {
+          errors.push({
+            file: result.filename,
+            error: result.error,
+          });
+        }
+      });
+
+      console.log(
+        `📊 Progress: ${results.length + errors.length}/${files.length}`,
+      );
+    }
+
+    console.log(
+      `✅ Bulk upload complete: ${results.length} success, ${errors.length} errors`,
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Processed ${results.length} certificates successfully`,
+      results,
+      errors,
+      totalProcessed: results.length,
+      totalErrors: errors.length,
+    });
+  } catch (error) {
+    console.error("Bulk upload error:", error);
+
+    if (req.files) {
+      req.files.forEach((file) => {
+        if (fs.existsSync(file.path)) {
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {}
+        }
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to process bulk upload",
+    });
+  }
+};
+
+// ============================================================
+// VERIFY CERTIFICATE BY HASH
+// ============================================================
 export const verifyCertificateByHash = async (req, res) => {
   try {
     const { hash } = req.params || req.body;
@@ -184,35 +477,35 @@ export const verifyCertificateByHash = async (req, res) => {
 
     console.log(`🔍 Verifying certificate: ${hash}`);
 
-    // Check blockchain
     await blockchainConfig.initialize();
     const contract = blockchainConfig.getContract();
 
-    // Use verifyCertificate (exists in your contract)
     const isValid = await contract.verifyCertificate(hash);
-    
-    // Try to get details if the method exists
+
     let details = null;
     try {
       details = await contract.getCertificate(hash);
     } catch (detailError) {
-      console.log("ℹ️ getCertificate method not available, using basic verification");
+      console.log(
+        "ℹ️ getCertificate method not available, using basic verification",
+      );
     }
 
-    // Check database
     const certificate = await Certificate.findOne({ certificateHash: hash });
 
     res.status(200).json({
       success: true,
       isValid,
-      details: details ? {
-        registrationNumber: details[0],
-        studentName: details[1],
-        degree: details[2],
-        issueDate: new Date(Number(details[3]) * 1000),
-        isValid: details[4],
-        ipfsHash: details[5],
-      } : null,
+      details: details
+        ? {
+            registrationNumber: details[0],
+            studentName: details[1],
+            degree: details[2],
+            issueDate: new Date(Number(details[3]) * 1000),
+            isValid: details[4],
+            ipfsHash: details[5],
+          }
+        : null,
       certificate: certificate || null,
     });
   } catch (error) {
@@ -224,7 +517,9 @@ export const verifyCertificateByHash = async (req, res) => {
   }
 };
 
-// Get batch status
+// ============================================================
+// GET BATCH STATUS
+// ============================================================
 export const getBatchStatus = async (req, res) => {
   try {
     const { batchId } = req.params;
@@ -250,15 +545,13 @@ export const getBatchStatus = async (req, res) => {
   }
 };
 
-// Get dashboard stats
-// backend/src/controllers/certificateController.js
-// Update getDashboardStats to handle missing contract methods
-
+// ============================================================
+// GET DASHBOARD STATS
+// ============================================================
 export const getDashboardStats = async (req, res) => {
   try {
     const universityId = req.user?.universityId || req.user?.id;
 
-    // Get database stats (always works)
     const dbTotal = await Certificate.countDocuments({ universityId });
     const verifiedCount = await Certificate.countDocuments({
       universityId,
@@ -275,17 +568,14 @@ export const getDashboardStats = async (req, res) => {
         "studentName registrationNumber certificateHash transactionHash status createdAt",
       );
 
-    // Try to get blockchain stats, fallback to database stats
     let totalCertificates = 0;
     try {
       await blockchainConfig.initialize();
       const contract = blockchainConfig.getContract();
-      
-      // Try to call getCertificateCount if it exists
+
       if (contract.getCertificateCount) {
         totalCertificates = Number(await contract.getCertificateCount()) || 0;
       } else {
-        // Fallback: count from database
         totalCertificates = dbTotal;
       }
     } catch (blockchainError) {
@@ -310,7 +600,9 @@ export const getDashboardStats = async (req, res) => {
   }
 };
 
-// Get all certificates for university
+// ============================================================
+// GET ALL CERTIFICATES
+// ============================================================
 export const getCertificates = async (req, res) => {
   try {
     const universityId = req.user?.universityId || req.user?.id;
@@ -345,15 +637,14 @@ export const getCertificates = async (req, res) => {
   }
 };
 
-
-// backend/src/controllers/certificateController.js
-// Replace the revokeCertificate function with hybrid approach
-
+// ============================================================
+// REVOKE CERTIFICATE
+// ============================================================
 export const revokeCertificate = async (req, res) => {
   try {
     const { hash } = req.params;
     const { reason } = req.body;
-    const revokedBy = req.user?.id || req.user?.email || 'unknown';
+    const revokedBy = req.user?.id || req.user?.email || "unknown";
 
     if (!hash) {
       return res.status(400).json({
@@ -373,7 +664,6 @@ export const revokeCertificate = async (req, res) => {
     console.log(`📝 Reason: ${reason}`);
     console.log(`👤 Revoked by: ${revokedBy}`);
 
-    // Step 1: Check if certificate exists in database
     const certificate = await Certificate.findOne({ certificateHash: hash });
     if (!certificate) {
       return res.status(404).json({
@@ -382,7 +672,6 @@ export const revokeCertificate = async (req, res) => {
       });
     }
 
-    // Step 2: Check if already revoked
     if (certificate.status === "revoked") {
       return res.status(400).json({
         success: false,
@@ -395,37 +684,26 @@ export const revokeCertificate = async (req, res) => {
       });
     }
 
-    // Step 3: Determine revocation type
     const isBatchCertificate = certificate.isBatchCertificate === true;
     const blockchainHash = hash.startsWith("0x") ? hash : `0x${hash}`;
 
     let transactionHash = null;
     let blockNumber = null;
-    let revocationType = isBatchCertificate ? 'batch' : 'single';
+    let revocationType = isBatchCertificate ? "batch" : "single";
 
-    // Step 4: Handle based on certificate type
     if (isBatchCertificate) {
-      // ============================================================
-      // BATCH CERTIFICATE REVOCATION - MUTABLE STATE ONLY
-      // ============================================================
       console.log(
         `📦 Batch certificate detected. Merkle Root: ${certificate.merkleRoot}`,
       );
       console.log(`📦 Batch ID: ${certificate.batchId}`);
       console.log(`📦 Leaf Index: ${certificate.leafIndex}`);
 
-      // backend/src/controllers/certificateController.js
-      // In the batch certificate section, replace the audit log try-catch
-
       try {
-        // Attempt to log revocation on blockchain (audit only)
         await blockchainConfig.initialize();
         const contract = blockchainConfig.getContract();
 
-        // Check if contract has the audit log function
         if (contract.logCertificateRevocation) {
           console.log(`📝 Logging revocation audit on blockchain...`);
-
           const tx = await contract.logCertificateRevocation(
             blockchainHash,
             reason,
@@ -437,19 +715,11 @@ export const revokeCertificate = async (req, res) => {
           console.log(`✅ Audit log recorded: ${transactionHash}`);
         } else {
           console.log(`ℹ️ Audit log function not available in contract`);
-          console.log(`ℹ️ Please update contract and redeploy`);
         }
       } catch (auditError) {
-        // Non-blocking - continue with database update
         console.warn(`⚠️ Blockchain audit log failed: ${auditError.message}`);
         console.warn(`⚠️ Continuing with database revocation...`);
-
-        // Log the error but don't fail the operation
-        // This ensures revocation still works even if audit log fails
       }
-
-      // backend/src/controllers/certificateController.js
-      // Replace the findOneAndUpdate with returnDocument: 'after'
 
       const updatedCertificate = await Certificate.findOneAndUpdate(
         { certificateHash: hash },
@@ -462,15 +732,8 @@ export const revokeCertificate = async (req, res) => {
           transactionHash: transactionHash || certificate.transactionHash,
           blockNumber: blockNumber || certificate.blockNumber,
         },
-        {
-          new: true,
-          returnDocument: "after", // Add this to fix deprecation warning
-        },
+        { new: true, returnDocument: "after" },
       );
-
-      // Update stats
-      // Note: We don't decrement verifiedStudents for batch certificates
-      // because the Merkle Root is still valid
 
       return res.status(200).json({
         success: true,
@@ -492,26 +755,18 @@ export const revokeCertificate = async (req, res) => {
         },
       });
     } else {
-      // ============================================================
-      // SINGLE CERTIFICATE REVOCATION - BLOCKCHAIN + MUTABLE STATE
-      // ============================================================
       console.log(`📄 Single certificate detected`);
 
       try {
-        // Step 1: Revoke on blockchain
         await blockchainConfig.initialize();
         const contract = blockchainConfig.getContract();
 
-        const tx = await contract.revokeCertificate(
-          blockchainHash,
-          reason
-        );
+        const tx = await contract.revokeCertificate(blockchainHash, reason);
         transactionHash = tx.hash;
         const receipt = await tx.wait();
         blockNumber = receipt.blockNumber;
         console.log(`✅ Blockchain revocation confirmed: ${transactionHash}`);
 
-        // Step 2: Update MongoDB
         const updatedCertificate = await Certificate.findOneAndUpdate(
           { certificateHash: hash },
           {
@@ -519,16 +774,12 @@ export const revokeCertificate = async (req, res) => {
             revocationReason: reason,
             revokedAt: new Date(),
             revokedBy: revokedBy,
-            revocationType: 'single',
+            revocationType: "single",
             transactionHash: transactionHash,
             blockNumber: blockNumber,
           },
-          { new: true }
+          { new: true },
         );
-
-        // Step 3: Update stats
-        // Decrement verified students count
-        // This is handled in the frontend
 
         return res.status(200).json({
           success: true,
@@ -539,17 +790,16 @@ export const revokeCertificate = async (req, res) => {
             revocationReason: reason,
             revokedAt: updatedCertificate.revokedAt,
             revokedBy: revokedBy,
-            revocationType: 'single',
+            revocationType: "single",
             transactionHash: transactionHash,
             blockNumber: blockNumber,
             certificate: updatedCertificate,
           },
         });
-
       } catch (blockchainError) {
-        console.error(`❌ Blockchain revocation failed: ${blockchainError.message}`);
-        
-        // For single certificates, blockchain revocation is required
+        console.error(
+          `❌ Blockchain revocation failed: ${blockchainError.message}`,
+        );
         return res.status(500).json({
           success: false,
           message: `Blockchain revocation failed: ${blockchainError.message}`,
@@ -557,7 +807,6 @@ export const revokeCertificate = async (req, res) => {
         });
       }
     }
-
   } catch (error) {
     console.error("Revocation error:", error);
     res.status(500).json({
@@ -567,7 +816,9 @@ export const revokeCertificate = async (req, res) => {
   }
 };
 
-// Get certificate by ID
+// ============================================================
+// GET CERTIFICATE BY ID
+// ============================================================
 export const getCertificateById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -593,10 +844,9 @@ export const getCertificateById = async (req, res) => {
   }
 };
 
-// backend/src/controllers/certificateController.js
-// Add this function for searching students for revocation
-
-// Search students for revocation (by name or registration number)
+// ============================================================
+// SEARCH STUDENTS FOR REVOCATION
+// ============================================================
 export const searchStudentsForRevocation = async (req, res) => {
   try {
     const universityId = req.user?.universityId || req.user?.id;
@@ -610,8 +860,7 @@ export const searchStudentsForRevocation = async (req, res) => {
     }
 
     const searchRegex = new RegExp(query, "i");
-    
-    // Find certificates with status "verified" (not already revoked)
+
     const certificates = await Certificate.find({
       universityId,
       status: "verified",
@@ -622,8 +871,10 @@ export const searchStudentsForRevocation = async (req, res) => {
         { studentId: searchRegex },
       ],
     })
-    .limit(20)
-    .select("studentName registrationNumber rollNumber certificateHash degree issueDate");
+      .limit(20)
+      .select(
+        "studentName registrationNumber rollNumber certificateHash degree issueDate",
+      );
 
     res.status(200).json({
       success: true,
@@ -639,194 +890,9 @@ export const searchStudentsForRevocation = async (req, res) => {
   }
 };
 
-// Bulk upload certificates
-// backend/src/controllers/certificateController.js
-// Optimized bulk upload with parallel processing
-
-export const bulkUploadCertificates = async (req, res) => {
-  try {
-    const { files } = req;
-    const universityId = req.user?.universityId || req.user?.id;
-
-    if (!files || files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No files uploaded",
-      });
-    }
-
-    console.log(`📁 Processing ${files.length} certificates in bulk...`);
-
-    // Process files in parallel with concurrency limit
-    const concurrencyLimit = 5; // Process 5 files at a time
-    const results = [];
-    const errors = [];
-
-    // Helper to process a single file
-    const processFile = async (file) => {
-      const fileResult = {
-        filename: file.originalname,
-        success: false,
-        error: null,
-        data: null,
-      };
-
-      try {
-        if (!fs.existsSync(file.path)) {
-          throw new Error("File not found on disk");
-        }
-
-        // Step 1: OCR
-        const ocrResult = await easyOCRService.extractFields(file.path);
-        if (!ocrResult.success) {
-          throw new Error(ocrResult.error || "OCR failed");
-        }
-
-        const fields = ocrResult.fields;
-
-        // Step 2: Prepare data
-        const certificateData = {
-          student_name: fields.student_name || "Unknown",
-          father_name: fields.father_name || "",
-          registration_number: fields.registration_number || `REG-${Date.now()}`,
-          roll_number: fields.roll_number || "",
-          degree: fields.degree || "Not Specified",
-          university_name: fields.university_name || req.user?.institution || "Unknown",
-          session: fields.session || "",
-          cgpa: fields.cgpa || "",
-          issuer: req.user?.institution || "Unknown",
-        };
-
-        // Step 3: Generate Hash
-        const certificateHash = crypto
-          .createHash("sha256")
-          .update(JSON.stringify(certificateData))
-          .digest("hex");
-
-        // Step 4: Store on Blockchain
-        await blockchainConfig.initialize();
-        const contract = blockchainConfig.getContract();
-
-        const metadata = JSON.stringify({
-          registrationNumber: certificateData.registration_number,
-          studentName: certificateData.student_name,
-          degree: certificateData.degree,
-          session: certificateData.session,
-          cgpa: certificateData.cgpa,
-        });
-
-        const tx = await contract.storeCertificate("0x" + certificateHash, metadata);
-        const receipt = await tx.wait();
-
-        // Step 5: Save to Database
-        const certificate = await Certificate.create({
-          certificateHash,
-          studentName: certificateData.student_name,
-          fatherName: certificateData.father_name,
-          registrationNumber: certificateData.registration_number,
-          rollNumber: certificateData.roll_number,
-          degree: certificateData.degree,
-          universityName: certificateData.university_name,
-          session: certificateData.session,
-          cgpa: certificateData.cgpa,
-          universityId,
-          issuer: certificateData.issuer,
-          issueDate: new Date(),
-          transactionHash: receipt.hash,
-          blockNumber: receipt.blockNumber,
-          status: "verified",
-          ocrData: fields,
-          confidence: ocrResult.confidence || 0,
-          processingTime: ocrResult.processingTime || 0,
-        });
-
-        // Success
-        fileResult.success = true;
-        fileResult.data = {
-          studentName: certificateData.student_name,
-          registrationNumber: certificateData.registration_number,
-          degree: certificateData.degree,
-          certificateHash: certificateHash,
-          transactionHash: receipt.hash,
-          blockNumber: receipt.blockNumber,
-        };
-
-        // Cleanup file
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
-
-        return fileResult;
-
-      } catch (error) {
-        console.error(`❌ Error processing ${file.originalname}:`, error.message);
-        fileResult.error = error.message;
-        
-        // Cleanup on error
-        if (fs.existsSync(file.path)) {
-          try { fs.unlinkSync(file.path); } catch (e) {}
-        }
-        
-        return fileResult;
-      }
-    };
-
-    // Process files in parallel with concurrency control
-    console.log(`🔄 Processing ${files.length} files with concurrency ${concurrencyLimit}...`);
-    
-    const fileQueue = [...files];
-    const processingPromises = [];
-
-    while (fileQueue.length > 0) {
-      const batch = fileQueue.splice(0, concurrencyLimit);
-      const batchPromises = batch.map(file => processFile(file));
-      const batchResults = await Promise.all(batchPromises);
-      
-      batchResults.forEach(result => {
-        if (result.success) {
-          results.push(result.data);
-        } else {
-          errors.push({
-            file: result.filename,
-            error: result.error,
-          });
-        }
-      });
-      
-      console.log(`📊 Progress: ${results.length + errors.length}/${files.length}`);
-    }
-
-    console.log(`✅ Bulk upload complete: ${results.length} success, ${errors.length} errors`);
-
-    res.status(200).json({
-      success: true,
-      message: `Processed ${results.length} certificates successfully`,
-      results,
-      errors,
-      totalProcessed: results.length,
-      totalErrors: errors.length,
-    });
-
-  } catch (error) {
-    console.error("Bulk upload error:", error);
-    
-    // Cleanup all files on major error
-    if (req.files) {
-      req.files.forEach(file => {
-        if (fs.existsSync(file.path)) {
-          try { fs.unlinkSync(file.path); } catch (e) {}
-        }
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: error.message || "Failed to process bulk upload",
-    });
-  }
-};
-
-// Get certificate statistics
+// ============================================================
+// GET CERTIFICATE STATS
+// ============================================================
 export const getCertificateStats = async (req, res) => {
   try {
     const universityId = req.user?.universityId || req.user?.id;
@@ -866,7 +932,9 @@ export const getCertificateStats = async (req, res) => {
   }
 };
 
-// Search certificates
+// ============================================================
+// SEARCH CERTIFICATES
+// ============================================================
 export const searchCertificates = async (req, res) => {
   try {
     const universityId = req.user?.universityId || req.user?.id;
@@ -905,10 +973,9 @@ export const searchCertificates = async (req, res) => {
   }
 };
 
-//excel upload
-// Bulk import from Excel/CSV
-import certificateBatchService from "../services/certificate/certificateBatchService.js";
-
+// ============================================================
+// BULK IMPORT FROM EXCEL
+// ============================================================
 export const bulkImportFromExcel = async (req, res) => {
   try {
     const result = await certificateBatchService.importExcel(

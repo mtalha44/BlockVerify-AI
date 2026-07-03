@@ -1,14 +1,14 @@
+// frontend/src/App.jsx
 import React from "react";
-import {
-  Routes,
-  Route,
-  BrowserRouter,
-} from "react-router-dom";
+import { Routes, Route, BrowserRouter } from "react-router-dom";
 import LoginPage from "./pages/UserVerifyPages/LoginPage";
 import SignupPage from "./pages/UserVerifyPages/SignupPage";
 import UniLoginPage from "./pages/UserVerifyPages/UniLoginPage";
 import HomePage from "./pages/HomePage/HomePage";
-import Layout, { LayoutWithFooter, LayoutWithoutNavbar } from "./pages/Layout/Outlet";
+import Layout, {
+  LayoutWithFooter,
+  LayoutWithoutNavbar,
+} from "./pages/Layout/Outlet";
 import CertificateUpload from "./pages/UploadCertificate/UploadPage";
 import ForgotPassword from "./pages/ForgetPasswordPages/ForgetPassword";
 import UniversityEnrollment from "./components/forms/UniAuthForm";
@@ -23,12 +23,12 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public routes with footer */}
         <Route element={<LayoutWithFooter />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/institution-signin" element={<UniLoginPage />} />
-          
           <Route
             path="/UniversityEnrollment"
             element={<UniversityEnrollment />}
@@ -39,16 +39,33 @@ function App() {
             element={<UniversityActivation />}
           />
         </Route>
+
+        {/* Home and upload routes */}
         <Route path="/" element={<Layout />}>
           <Route index element={<HomePage />} />
-          <Route path="/uploadpage" element={<CertificateUpload />} />
         </Route>
+
+        {/* Protected routes without navbar */}
         <Route element={<LayoutWithoutNavbar />}>
           <Route
             path="/user-dashboard"
             element={
-              <ProtectedRoute allowedRoles={["user", "admin"]}>
+              <ProtectedRoute
+                allowedRoles={["user", "admin"]}
+                redirectTo="/login"
+              >
                 <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/upload"
+            element={
+              <ProtectedRoute
+                allowedRoles={["user", "university", "admin"]}
+                redirectTo="/login"
+              >
+                <CertificateUpload />
               </ProtectedRoute>
             }
           />

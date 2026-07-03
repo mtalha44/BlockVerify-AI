@@ -1,3 +1,4 @@
+// frontend/src/Pages/UploadCertificate/UploadPage.jsx
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -8,24 +9,30 @@ import {
   AlertCircle,
   FileType,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
+import OCRResultModal from "./OCRResultModal";
+import VerificationResultModal from "./VerificationResultModal";
 import VerifyInfoSection from "./VerifyInfoSection";
+import { certificateAPI } from "../../api/axios"; // <-- ADD THIS IMPORT
 
 const CertificateUpload = () => {
-  // Track whether user is dragging files over the upload area
   const [dragActive, setDragActive] = useState(false);
-
-  // Store uploaded files
   const [files, setFiles] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [ocrResult, setOcrResult] = useState(null);
+  const [currentFile, setCurrentFile] = useState(null);
+  const [showOCRModal, setShowOCRModal] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationResult, setVerificationResult] = useState(null);
+  const [verifiedCertificate, setVerifiedCertificate] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState({});
 
-  // Reference to hidden file input
   const inputRef = useRef(null);
 
-  // Handle drag events
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-
     if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
     } else if (e.type === "dragleave") {
@@ -33,53 +40,232 @@ const CertificateUpload = () => {
     }
   };
 
-  // Handle file drop
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
-
     setDragActive(false);
-
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      addFiles(Array.from(e.dataTransfer.files));
+      processFiles(Array.from(e.dataTransfer.files));
     }
   };
 
-  // Handle file selection from file picker
   const handleChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      addFiles(Array.from(e.target.files));
+      processFiles(Array.from(e.target.files));
     }
   };
 
-  // Add valid files to state
-  const addFiles = (newFiles) => {
-    // Allow only PDF, JPG, JPEG, PNG
+  const processFiles = (newFiles) => {
     const validFiles = newFiles.filter((file) =>
       ["application/pdf", "image/jpeg", "image/png"].includes(file.type),
     );
 
-    // Convert files into objects with extra information
     const formattedFiles = validFiles.map((file) => ({
       file,
       id: Math.random().toString(36).slice(2, 11),
-      status: "completed",
-      progress: 100,
+      status: "pending",
+      progress: 0,
     }));
 
-    // Add new files to existing files
     setFiles((prevFiles) => [...prevFiles, ...formattedFiles]);
+
+    // Auto-process first file
+    if (formattedFiles.length > 0) {
+      handleFileUpload(formattedFiles[0]);
+    }
   };
 
-  // Remove file by id
+  // frontend/src/Pages/UploadCertificate/UploadPage.jsx
+  // Update the handleFileUpload function
+
+  // frontend/src/Pages/UploadCertificate/UploadPage.jsx
+  // Update the handleFileUpload function based on user role
+
+  const handleFileUpload = async (fileInfo) => {
+    setFiles((prev) =>
+      prev.map((f) =>
+        f.id === fileInfo.id ? { ...f, status: "processing" } : f,
+      ),
+    );
+
+    try {
+      console.log("🚀 Starting upload for:", fileInfo.file.name);
+      console.log("📄 File type:", fileInfo.file.type);
+      console.log("📄 File size:", fileInfo.file.size);
+
+      // Check user role from localStorage
+      const userData = localStorage.getItem("user");
+      let userRole = "user";
+      if (userData) {
+        try {
+          const parsed = JSON.parse(userData);
+          userRole = parsed.role || "user";
+        } catch (e) {}
+      }
+
+      console.log("👤 User role:", userRole);
+
+      let response;
+
+      // If University Admin, upload and store on blockchain
+      if (userRole === "university" || userRole === "admin") {
+        console.log(
+          "🏛️ University Admin - Uploading and storing on blockchain",
+        );
+        response = await certificateAPI.uploadAndStore(
+          fileInfo.file,
+          (percent) => {
+            setUploadProgress((prev) => ({
+              ...prev,
+              [fileInfo.id]: percent,
+            }));
+          },
+        );
+      } else {
+        // Regular user - OCR only for verification
+        console.log("👤 Regular user - OCR only for verification");
+        response = await certificateAPI.uploadForOCR(
+          fileInfo.file,
+          (percent) => {
+            setUploadProgress((prev) => ({
+              ...prev,
+              [fileInfo.id]: percent,
+            }));
+          },
+        );
+      }
+
+      console.log("✅ Upload response:", response.data);
+
+      if (response.data.success) {
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileInfo.id ?
+              { ...f, status: "completed", progress: 100 }
+            : f,
+          ),
+        );
+
+        setCurrentFile(fileInfo);
+        setOcrResult(response.data.data);
+        setShowOCRModal(true);
+      }
+    } catch (error) {
+      console.error("❌ Upload error details:", error);
+      console.error("Error config:", error.config);
+      console.error("Error response:", error.response);
+      console.error("Error request:", error.request);
+
+      let errorMessage = "Upload failed";
+      if (error.response) {
+        errorMessage =
+          error.response.data?.message ||
+          error.response.statusText ||
+          "Server error";
+      } else if (error.request) {
+        errorMessage =
+          "No response from server. Please check if backend is running.";
+      } else {
+        errorMessage = error.message;
+      }
+
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === fileInfo.id ?
+            {
+              ...f,
+              status: "error",
+              error: errorMessage,
+            }
+          : f,
+        ),
+      );
+    }
+  };
+
+  const handleVerifyWithOCR = async (editedData) => {
+    setIsProcessing(true);
+    setShowOCRModal(false);
+
+    try {
+      console.log("Verifying with OCR data:", editedData);
+
+      const response = await certificateAPI.verifyWithOCR(
+        editedData,
+        ocrResult,
+        {
+          name: currentFile?.file?.name,
+          type: currentFile?.file?.type,
+          size: currentFile?.file?.size,
+        },
+      );
+
+      console.log("Verification response:", response.data);
+
+      if (response.data.success) {
+        setVerificationResult({
+          success: true,
+          isValid: response.data.isValid,
+          message: response.data.message,
+          method: response.data.method,
+        });
+        setVerifiedCertificate(response.data.certificate);
+        setShowVerificationModal(true);
+      } else {
+        setVerificationResult({
+          success: false,
+          isValid: false,
+          message: response.data.message || "Verification failed",
+        });
+        setShowVerificationModal(true);
+      }
+    } catch (error) {
+      console.error("Verification error:", error);
+      setVerificationResult({
+        success: false,
+        isValid: false,
+        message:
+          error.response?.data?.message ||
+          error.message ||
+          "Verification failed",
+      });
+      setShowVerificationModal(true);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const removeFile = (id) => {
     setFiles((prevFiles) => prevFiles.filter((fileInfo) => fileInfo.id !== id));
+  };
+
+  const clearAllFiles = () => {
+    setFiles([]);
+    setOcrResult(null);
+    setCurrentFile(null);
+    setVerificationResult(null);
+    setVerifiedCertificate(null);
+    setUploadProgress({});
+  };
+
+  const getFileStatusIcon = (status) => {
+    switch (status) {
+      case "completed":
+        return <CheckCircle2 className="size-5 text-emerald-500" />;
+      case "processing":
+        return <Loader2 className="size-5 text-blue-500 animate-spin" />;
+      case "error":
+        return <AlertCircle className="size-5 text-red-500" />;
+      default:
+        return (
+          <div className="size-5 rounded-full border-2 border-slate-300" />
+        );
+    }
   };
 
   return (
     <section>
       <div className="w-full max-w-4xl mx-auto p-4 sm:p-8">
-        
         <div className="text-center mb-10">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -105,8 +291,8 @@ const CertificateUpload = () => {
             transition={{ delay: 0.2 }}
             className="text-slate-500 text-lg max-w-2xl mx-auto"
           >
-            Drop your digital assets here to verify their authenticity. We
-            support PDF, JPG, and PNG formats.
+            Upload your certificate to verify its authenticity on the
+            blockchain. Our AI will extract and verify the data automatically.
           </motion.p>
         </div>
 
@@ -126,7 +312,6 @@ const CertificateUpload = () => {
           onDrop={handleDrop}
           onClick={() => inputRef.current?.click()}
         >
-          {/* Hidden File Input */}
           <input
             ref={inputRef}
             type="file"
@@ -136,13 +321,11 @@ const CertificateUpload = () => {
             onChange={handleChange}
           />
 
-          {/* Background Decoration */}
           <div className="absolute inset-0 pointer-events-none opacity-[0.03]">
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-slate-900 blur-3xl" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-slate-900 blur-3xl" />
           </div>
 
-          {/* Upload Content */}
           <div className="relative z-10 flex flex-col items-center">
             <motion.div
               animate={dragActive ? { scale: 1.2 } : { scale: 1 }}
@@ -168,7 +351,6 @@ const CertificateUpload = () => {
                 <FileType className="size-3" />
                 PDF Supported
               </div>
-
               <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
                 <FileType className="size-3" />
                 Images Supported
@@ -189,7 +371,6 @@ const CertificateUpload = () => {
                 layout
                 className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl hover:border-slate-300 hover:shadow-sm transition-all"
               >
-                {/* Left Side */}
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500">
                     {fileInfo.file.type.includes("pdf") ?
@@ -201,18 +382,25 @@ const CertificateUpload = () => {
                     <h4 className="text-sm font-semibold text-slate-900 truncate max-w-[200px] sm:max-w-md">
                       {fileInfo.file.name}
                     </h4>
-
-                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-                      {(fileInfo.file.size / (1024 * 1024)).toFixed(2)} MB •{" "}
-                      {fileInfo.status}
+                    <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      {(fileInfo.file.size / (1024 * 1024)).toFixed(2)} MB
+                      {fileInfo.status === "processing" && (
+                        <span className="text-blue-500">
+                          • {uploadProgress[fileInfo.id] || 0}%
+                        </span>
+                      )}
+                      {fileInfo.status === "completed" && (
+                        <span className="text-emerald-500">• Verified</span>
+                      )}
+                      {fileInfo.status === "error" && (
+                        <span className="text-red-500">• {fileInfo.error}</span>
+                      )}
                     </p>
                   </div>
                 </div>
 
-                {/* Right Side */}
                 <div className="flex items-center gap-3">
-                  <CheckCircle2 className="size-5 text-emerald-500" />
-
+                  {getFileStatusIcon(fileInfo.status)}
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -228,34 +416,45 @@ const CertificateUpload = () => {
           </AnimatePresence>
         </div>
 
-        {/* Verify Button */}
+        {/* Clear All Button */}
         {files.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-8"
-          >
-            <button className="w-full h-14 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-lg font-semibold flex items-center justify-center group transition-colors">
-              <span>
-                Verify {files.length}{" "}
-                {files.length === 1 ? "Certificate" : "Certificates"}
-              </span>
-              <AlertCircle className="ml-2 size-5 group-hover:rotate-12 transition-transform" />
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={clearAllFiles}
+              className="text-sm text-slate-400 hover:text-red-500 transition-colors"
+            >
+              Clear All
             </button>
-
-            <p className="text-center text-slate-400 text-xs mt-4">
-              By clicking verify, you agree to our{" "}
-              <span className="underline cursor-pointer hover:text-slate-600 transition-colors">
-                Terms of Service
-              </span>
-              .
-            </p>
-          </motion.div>
+          </div>
         )}
-      <VerifyInfoSection />
+
+        <VerifyInfoSection />
       </div>
+
+      {/* Modals */}
+      <OCRResultModal
+        isOpen={showOCRModal}
+        onClose={() => {
+          setShowOCRModal(false);
+          setOcrResult(null);
+        }}
+        ocrData={ocrResult}
+        file={currentFile?.file}
+        onVerify={handleVerifyWithOCR}
+        isLoading={isProcessing}
+      />
+
+      <VerificationResultModal
+        isOpen={showVerificationModal}
+        onClose={() => {
+          setShowVerificationModal(false);
+          setVerificationResult(null);
+        }}
+        result={verificationResult}
+        certificate={verifiedCertificate}
+      />
     </section>
   );
-};
+};;;
 
 export default CertificateUpload;

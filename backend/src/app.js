@@ -9,6 +9,8 @@ import connectDB from "./config/db.js";
 import blockchainConfig from "./config/blockchain.js";
 import redisConfig from "./config/redis.js";
 import queueService from "./services/queue/queueService.js";
+import verificationRoutes from "../routes/verificationRoutes.js";
+import certificateRoutes from "./routes/certificateRoutes.js";
 
 import authRoutes from "./routes/authRoutes.js";
 import certificateRoutes from "./routes/certificateRoutes.js";
@@ -42,6 +44,9 @@ app.use("/api/batch", batchRoutes);
 app.use("/api/excel", excelRoutes);
 app.use("/api/revoke", revocationRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/certificates", certificateRoutes);
+app.use("/api/verification", verificationRoutes);
+
 
 // Health check
 app.get("/api/health", (req, res) => {
