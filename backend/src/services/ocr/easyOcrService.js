@@ -54,6 +54,7 @@ class EasyOCRService {
       throw new Error("OCR Service not available after multiple attempts");
     }
   }
+  // Increase timeout and add retry logic
 
   async extractFields(imagePath) {
     try {
@@ -68,7 +69,6 @@ class EasyOCRService {
 
       console.log(`🔍 Sending to OCR Service: ${path.basename(imagePath)}`);
 
-      // Check if file exists
       if (!fs.existsSync(imagePath)) {
         throw new Error(`File not found: ${imagePath}`);
       }
@@ -76,11 +76,12 @@ class EasyOCRService {
       const formData = new FormData();
       formData.append("file", fs.createReadStream(imagePath));
 
+      // Increase timeout to 120 seconds for large files
       const response = await axios.post(`${this.ocrUrl}/ocr`, formData, {
         headers: {
           ...formData.getHeaders(),
         },
-        timeout: 60000, // 60 seconds timeout
+        timeout: 120000, // 120 seconds timeout
       });
 
       console.log(`📥 OCR Response Status: ${response.status}`);
@@ -111,7 +112,6 @@ class EasyOCRService {
     } catch (error) {
       console.error("❌ OCR error:", error.message);
 
-      // Check if it's a connection error
       if (error.code === "ECONNREFUSED" || error.code === "ECONNRESET") {
         console.error("💡 OCR Service is not running or not accessible");
         console.error(

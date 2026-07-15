@@ -280,12 +280,302 @@ export const uploadSingleCertificate = async (req, res) => {
 };
 
 // ============================================================
-// BULK UPLOAD CERTIFICATES
+// backend/src/controllers/certificateController.js
+// ============================================================
+// BULK UPLOAD CERTIFICATES - SEQUENTIAL WITH PROGRESS
+// ============================================================
+// export const bulkUploadCertificates = async (req, res) => {
+//   try {
+//     const { files } = req;
+//     const universityId = req.user?.universityId || req.user?.id;
+//     const user = req.user;
+
+//     if (!files || files.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "No files uploaded",
+//       });
+//     }
+
+//     console.log(`📁 Processing ${files.length} certificates in bulk (SEQUENTIAL)...`);
+//     console.log(`👤 University ID: ${universityId}`);
+//     console.log(`⏱️ Estimated time: ~${files.length * 15} seconds`);
+
+//     const startTime = Date.now();
+//     const results = [];
+//     const errors = [];
+//     let processedCount = 0;
+
+//     // ============================================================
+//     // PROCESS FILES ONE BY ONE (SEQUENTIAL)
+//     // ============================================================
+//     for (let i = 0; i < files.length; i++) {
+//       const file = files[i];
+//       const currentFileNumber = i + 1;
+      
+//       console.log(`\n${'='.repeat(60)}`);
+//       console.log(`📄 [${currentFileNumber}/${files.length}] Processing: ${file.originalname}`);
+//       console.log(`${'='.repeat(60)}`);
+
+//       const fileStartTime = Date.now();
+//       const fileResult = {
+//         filename: file.originalname,
+//         success: false,
+//         error: null,
+//         data: null,
+//         processingTime: 0,
+//         steps: {
+//           ocr: 0,
+//           hash: 0,
+//           blockchain: 0,
+//           database: 0,
+//         }
+//       };
+
+//       try {
+//         // ============================================================
+//         // STEP 1: VALIDATE FILE
+//         // ============================================================
+//         console.log(`🔍 [${currentFileNumber}/${files.length}] Validating file...`);
+//         if (!fs.existsSync(file.path)) {
+//           throw new Error("File not found on disk");
+//         }
+//         console.log(`✅ File validated: ${(file.size / 1024).toFixed(2)} KB`);
+
+//         // ============================================================
+//         // STEP 2: OCR PROCESSING
+//         // ============================================================
+//         console.log(`🔍 [${currentFileNumber}/${files.length}] Running OCR...`);
+//         const ocrStartTime = Date.now();
+//         const ocrResult = await easyOCRService.extractFields(file.path);
+//         fileResult.steps.ocr = (Date.now() - ocrStartTime) / 1000;
+
+//         if (!ocrResult.success) {
+//           throw new Error(ocrResult.error || "OCR processing failed");
+//         }
+
+//         const fields = ocrResult.fields;
+//         console.log(`✅ OCR completed in ${fileResult.steps.ocr}s`);
+//         console.log(`📊 Extracted fields:`, fields);
+
+//         // ============================================================
+//         // STEP 3: PREPARE CERTIFICATE DATA
+//         // ============================================================
+//         const certificateData = {
+//           student_name: fields.student_name || "Unknown",
+//           father_name: fields.father_name || "",
+//           registration_number: fields.registration_number || `REG-${Date.now()}-${String(i + 1).padStart(3, '0')}`,
+//           roll_number: fields.roll_number || "",
+//           degree: fields.degree || "Not Specified",
+//           session: fields.session || "",
+//           cgpa: fields.cgpa || "",
+//         };
+
+//         // ============================================================
+//         // STEP 4: GENERATE HASH
+//         // ============================================================
+//         console.log(`🔑 [${currentFileNumber}/${files.length}] Generating hash...`);
+//         const hashStartTime = Date.now();
+//         const certificateHash = sha256Service.generate(certificateData);
+//         fileResult.steps.hash = (Date.now() - hashStartTime) / 1000;
+//         console.log(`✅ Hash generated: ${certificateHash.substring(0, 16)}...`);
+
+//         // ============================================================
+//         // STEP 5: STORE ON BLOCKCHAIN
+//         // ============================================================
+//         console.log(`⛓️ [${currentFileNumber}/${files.length}] Storing on blockchain...`);
+//         const blockchainStartTime = Date.now();
+//         await blockchainConfig.initialize();
+//         const contract = blockchainConfig.getContract();
+
+//         const metadata = JSON.stringify({
+//           registrationNumber: certificateData.registration_number,
+//           studentName: certificateData.student_name,
+//           degree: certificateData.degree,
+//           session: certificateData.session,
+//           cgpa: certificateData.cgpa,
+//           university: user?.institution || "Unknown",
+//           universityId: universityId,
+//           uploadedBy: user?.email || user?.id || "Unknown",
+//           timestamp: new Date().toISOString(),
+//         });
+
+//         const tx = await contract.storeCertificate(certificateHash, metadata);
+//         const receipt = await tx.wait();
+//         fileResult.steps.blockchain = (Date.now() - blockchainStartTime) / 1000;
+//         console.log(`✅ Blockchain confirmed: ${receipt.blockNumber} (${fileResult.steps.blockchain}s)`);
+
+//         // ============================================================
+//         // STEP 6: SAVE TO DATABASE
+//         // ============================================================
+//         console.log(`💾 [${currentFileNumber}/${files.length}] Saving to database...`);
+//         const dbStartTime = Date.now();
+//         const certificate = await Certificate.create({
+//           certificateHash,
+//           studentName: certificateData.student_name,
+//           fatherName: certificateData.father_name,
+//           registrationNumber: certificateData.registration_number,
+//           rollNumber: certificateData.roll_number,
+//           degree: certificateData.degree,
+//           session: certificateData.session,
+//           cgpa: certificateData.cgpa,
+//           universityName: user?.institution || "Unknown",
+//           universityId: universityId,
+//           issuer: user?.institution || "Unknown",
+//           issueDate: new Date(),
+//           transactionHash: receipt.hash,
+//           blockNumber: receipt.blockNumber,
+//           status: "verified",
+//           ocrData: fields,
+//           confidence: ocrResult.confidence || 0,
+//           processingTime: ocrResult.processingTime || 0,
+//         });
+//         fileResult.steps.database = (Date.now() - dbStartTime) / 1000;
+//         console.log(`✅ Database saved: ${certificate._id} (${fileResult.steps.database}s)`);
+
+//         // ============================================================
+//         // STEP 7: CLEANUP
+//         // ============================================================
+//         console.log(`🗑️ [${currentFileNumber}/${files.length}] Cleaning up...`);
+//         if (fs.existsSync(file.path)) {
+//           fs.unlinkSync(file.path);
+//           console.log(`✅ File cleaned up`);
+//         }
+
+//         // ============================================================
+//         // STEP 8: SUCCESS
+//         // ============================================================
+//         fileResult.success = true;
+//         fileResult.data = {
+//           studentName: certificateData.student_name,
+//           registrationNumber: certificateData.registration_number,
+//           degree: certificateData.degree,
+//           certificateHash: certificateHash,
+//           transactionHash: receipt.hash,
+//           blockNumber: receipt.blockNumber,
+//         };
+//         fileResult.processingTime = (Date.now() - fileStartTime) / 1000;
+
+//         results.push(fileResult);
+//         processedCount++;
+
+//         console.log(`✅ [${currentFileNumber}/${files.length}] COMPLETED in ${fileResult.processingTime}s`);
+//         console.log(`   📊 Steps: OCR=${fileResult.steps.ocr}s, Hash=${fileResult.steps.hash}s, Blockchain=${fileResult.steps.blockchain}s, DB=${fileResult.steps.database}s`);
+
+//       } catch (error) {
+//         console.error(`❌ [${currentFileNumber}/${files.length}] FAILED:`, error.message);
+//         fileResult.error = error.message;
+//         fileResult.processingTime = (Date.now() - fileStartTime) / 1000;
+//         errors.push(fileResult);
+
+//         // Cleanup file on error
+//         if (fs.existsSync(file.path)) {
+//           try {
+//             fs.unlinkSync(file.path);
+//             console.log(`🗑️ Cleaned up failed file: ${file.path}`);
+//           } catch (e) {
+//             console.warn(`⚠️ Cleanup warning:`, e.message);
+//           }
+//         }
+//       }
+
+//       // ============================================================
+//       // PROGRESS REPORT
+//       // ============================================================
+//       const completed = results.length + errors.length;
+//       const percentComplete = Math.round((completed / files.length) * 100);
+//       console.log(`\n📊 Progress: ${completed}/${files.length} (${percentComplete}%)`);
+//       console.log(`✅ Successful: ${results.length} | ❌ Failed: ${errors.length}`);
+      
+//       // Small delay between files to let system breathe
+//       if (i < files.length - 1) {
+//         console.log(`⏳ Waiting 500ms before next file...`);
+//         await new Promise(resolve => setTimeout(resolve, 500));
+//       }
+//     }
+
+//     // ============================================================
+//     // FINAL SUMMARY
+//     // ============================================================
+//     const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+//     const avgTimePerFile = (totalTime / files.length).toFixed(2);
+
+//     console.log(`\n${'='.repeat(60)}`);
+//     console.log(`✅ BULK UPLOAD COMPLETE`);
+//     console.log(`${'='.repeat(60)}`);
+//     console.log(`📊 Total Files: ${files.length}`);
+//     console.log(`✅ Successful: ${results.length}`);
+//     console.log(`❌ Failed: ${errors.length}`);
+//     console.log(`⏱️ Total Time: ${totalTime}s`);
+//     console.log(`📈 Avg Time/File: ${avgTimePerFile}s`);
+//     console.log(`${'='.repeat(60)}`);
+
+//     res.status(200).json({
+//       success: true,
+//       message: `Processed ${results.length} of ${files.length} certificates successfully`,
+//       summary: {
+//         total: files.length,
+//         successful: results.length,
+//         failed: errors.length,
+//         totalTime: `${totalTime}s`,
+//         avgTimePerFile: `${avgTimePerFile}s`,
+//         totalFilesProcessed: results.length + errors.length,
+//       },
+//       results: results.map(r => ({
+//         filename: r.filename,
+//         studentName: r.data?.studentName,
+//         registrationNumber: r.data?.registrationNumber,
+//         certificateHash: r.data?.certificateHash,
+//         transactionHash: r.data?.transactionHash,
+//         processingTime: `${r.processingTime}s`,
+//         steps: r.steps,
+//       })),
+//       errors: errors.map(e => ({
+//         filename: e.filename,
+//         error: e.error,
+//         processingTime: `${e.processingTime}s`,
+//       })),
+//     });
+
+//   } catch (error) {
+//     console.error("❌ Bulk upload error:", error);
+
+//     // Cleanup all files on major error
+//     if (req.files) {
+//       req.files.forEach((file) => {
+//         if (fs.existsSync(file.path)) {
+//           try {
+//             fs.unlinkSync(file.path);
+//           } catch (e) {
+//             console.warn(`⚠️ Cleanup warning:`, e.message);
+//           }
+//         }
+//       });
+//     }
+
+//     res.status(500).json({
+//       success: false,
+//       message: error.message || "Failed to process bulk upload",
+//       error: error.message,
+//     });
+//   }
+// };
+
+// ============================================================
+// VERIFY CERTIFICATE BY HASH
+// ============================================================
+
+// backend/src/controllers/certificateController.js
+// Add this new function for bulk upload with Merkle Tree
+
+// ============================================================
+// BULK UPLOAD CERTIFICATES WITH MERKLE TREE
 // ============================================================
 export const bulkUploadCertificates = async (req, res) => {
   try {
     const { files } = req;
     const universityId = req.user?.universityId || req.user?.id;
+    const user = req.user;
 
     if (!files || files.length === 0) {
       return res.status(400).json({
@@ -294,156 +584,343 @@ export const bulkUploadCertificates = async (req, res) => {
       });
     }
 
-    console.log(`📁 Processing ${files.length} certificates in bulk...`);
+    console.log(
+      `📁 Processing ${files.length} certificates with Merkle Tree...`,
+    );
+    console.log(`👤 University ID: ${universityId}`);
+    console.log(`⏱️ Estimated time: ~${files.length * 15} seconds`);
 
-    const concurrencyLimit = 5;
-    const results = [];
+    const startTime = Date.now();
+    const students = [];
     const errors = [];
+    const duplicateHashes = new Set(); // Track duplicates
 
-    const processFile = async (file) => {
-      const fileResult = {
-        filename: file.originalname,
-        success: false,
-        error: null,
-        data: null,
-      };
+    // ============================================================
+    // STEP 1: PROCESS ALL FILES SEQUENTIALLY (OCR + HASH)
+    // ============================================================
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(`📄 PHASE 1: OCR Processing (${files.length} files)`);
+    console.log(`${"=".repeat(60)}`);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const currentFileNumber = i + 1;
+
+      console.log(
+        `\n🔄 [${currentFileNumber}/${files.length}] Processing: ${file.originalname}`,
+      );
 
       try {
+        // Validate file
         if (!fs.existsSync(file.path)) {
           throw new Error("File not found on disk");
         }
 
-        // Step 1: OCR
+        // OCR Processing
+        console.log(`🔍 Running OCR...`);
         const ocrResult = await easyOCRService.extractFields(file.path);
+
+        // Cleanup file immediately after OCR
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+
         if (!ocrResult.success) {
-          throw new Error(ocrResult.error || "OCR failed");
+          throw new Error(ocrResult.error || "OCR processing failed");
         }
 
         const fields = ocrResult.fields;
+        console.log(`✅ OCR complete (${ocrResult.processingTime}s)`);
+        console.log(`📊 Fields:`, fields);
 
-        // Step 2: Prepare data - ONLY 7 FIELDS
-        const certificateData = {
-          student_name: fields.student_name || "Unknown",
-          father_name: fields.father_name || "",
-          registration_number:
-            fields.registration_number || `REG-${Date.now()}`,
-          roll_number: fields.roll_number || "",
+        // Prepare certificate data - ONLY 7 FIELDS
+        const studentData = {
+          studentName: fields.student_name || "Unknown",
+          fatherName: fields.father_name || "",
+          registrationNumber:
+            fields.registration_number ||
+            `REG-${Date.now()}-${String(i + 1).padStart(3, "0")}`,
+          rollNumber: fields.roll_number || "",
           degree: fields.degree || "Not Specified",
           session: fields.session || "",
           cgpa: fields.cgpa || "",
         };
 
-        // Step 3: Generate Hash using sha256Service
-        const certificateHash = sha256Service.generate(certificateData);
+        // Generate Hash
+        const certificateHash = sha256Service.generate(studentData);
+        console.log(`🔑 Hash: ${certificateHash.substring(0, 16)}...`);
 
-        // Step 4: Store on Blockchain
-        await blockchainConfig.initialize();
-        const contract = blockchainConfig.getContract();
-
-        const metadata = JSON.stringify({
-          registrationNumber: certificateData.registration_number,
-          studentName: certificateData.student_name,
-          degree: certificateData.degree,
-          session: certificateData.session,
-          cgpa: certificateData.cgpa,
-          university: req.user?.institution || "Unknown",
-          universityId: universityId,
-        });
-
-        const tx = await contract.storeCertificate(certificateHash, metadata);
-        const receipt = await tx.wait();
-
-        // Step 5: Save to Database
-        const certificate = await Certificate.create({
+        // Check for duplicates
+        const existingCertificate = await Certificate.findOne({
           certificateHash,
-          studentName: certificateData.student_name,
-          fatherName: certificateData.father_name,
-          registrationNumber: certificateData.registration_number,
-          rollNumber: certificateData.roll_number,
-          degree: certificateData.degree,
-          session: certificateData.session,
-          cgpa: certificateData.cgpa,
-          universityName: req.user?.institution || "Unknown",
-          universityId,
-          issuer: req.user?.institution || "Unknown",
-          issueDate: new Date(),
-          transactionHash: receipt.hash,
-          blockNumber: receipt.blockNumber,
-          status: "verified",
+        });
+        if (existingCertificate) {
+          console.log(
+            `⚠️ Duplicate detected: ${certificateHash.substring(
+              0,
+              16,
+            )}... (skipping)`,
+          );
+          duplicateHashes.add(certificateHash);
+          errors.push({
+            file: file.originalname,
+            error: "Certificate already exists (duplicate)",
+            registrationNumber: studentData.registrationNumber,
+          });
+          continue;
+        }
+
+        // Store student data with hash
+        students.push({
+          ...studentData,
+          hash: certificateHash,
           ocrData: fields,
           confidence: ocrResult.confidence || 0,
           processingTime: ocrResult.processingTime || 0,
+          filename: file.originalname,
         });
 
-        fileResult.success = true;
-        fileResult.data = {
-          studentName: certificateData.student_name,
-          registrationNumber: certificateData.registration_number,
-          degree: certificateData.degree,
-          certificateHash: certificateHash,
-          transactionHash: receipt.hash,
-          blockNumber: receipt.blockNumber,
-        };
-
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
-
-        return fileResult;
+        console.log(
+          `✅ [${currentFileNumber}/${files.length}] Processed successfully`,
+        );
       } catch (error) {
         console.error(
-          `❌ Error processing ${file.originalname}:`,
+          `❌ [${currentFileNumber}/${files.length}] Failed:`,
           error.message,
         );
-        fileResult.error = error.message;
+        errors.push({
+          file: file.originalname,
+          error: error.message,
+        });
 
+        // Cleanup file on error
         if (fs.existsSync(file.path)) {
           try {
             fs.unlinkSync(file.path);
           } catch (e) {}
         }
-
-        return fileResult;
       }
-    };
 
-    const fileQueue = [...files];
-    while (fileQueue.length > 0) {
-      const batch = fileQueue.splice(0, concurrencyLimit);
-      const batchPromises = batch.map((file) => processFile(file));
-      const batchResults = await Promise.all(batchPromises);
-
-      batchResults.forEach((result) => {
-        if (result.success) {
-          results.push(result.data);
-        } else {
-          errors.push({
-            file: result.filename,
-            error: result.error,
-          });
-        }
-      });
-
+      // Progress report
+      const processed = students.length + errors.length;
       console.log(
-        `📊 Progress: ${results.length + errors.length}/${files.length}`,
+        `📊 Progress: ${processed}/${files.length} (${Math.round(
+          (processed / files.length) * 100,
+        )}%)`,
       );
     }
 
+    // Check if we have any valid students
+    if (students.length === 0) {
+      console.log(`❌ No valid certificates to store`);
+      return res.status(400).json({
+        success: false,
+        message: "No valid certificates found. All files failed processing.",
+        summary: {
+          total: files.length,
+          successful: 0,
+          failed: errors.length,
+          duplicate: duplicateHashes.size,
+        },
+        errors,
+      });
+    }
+
+    // ============================================================
+    // STEP 2: BUILD MERKLE TREE
+    // ============================================================
+    console.log(`\n${"=".repeat(60)}`);
     console.log(
-      `✅ Bulk upload complete: ${results.length} success, ${errors.length} errors`,
+      `🌳 PHASE 2: Building Merkle Tree (${students.length} certificates)`,
     );
+    console.log(`${"=".repeat(60)}`);
 
-    res.status(200).json({
-      success: true,
-      message: `Processed ${results.length} certificates successfully`,
-      results,
-      errors,
-      totalProcessed: results.length,
-      totalErrors: errors.length,
-    });
+    const tree = createMerkleTreeFromStudents(students);
+    const merkleRoot = tree.getRoot();
+    console.log(`✅ Merkle Root: ${merkleRoot}`);
+
+    // ============================================================
+    // STEP 3: STORE MERKLE ROOT ON BLOCKCHAIN (ONE TRANSACTION)
+    // ============================================================
+    console.log(`\n${"=".repeat(60)}`);
+    console.log(`⛓️ PHASE 3: Blockchain Storage (ONE transaction)`);
+    console.log(`${"=".repeat(60)}`);
+
+    const blockchainStartTime = Date.now();
+
+    try {
+      await blockchainConfig.initialize();
+      const contract = blockchainConfig.getContract();
+
+      const metadata = JSON.stringify({
+        university: user?.institution || "Unknown",
+        universityId: universityId,
+        totalStudents: students.length,
+        uploadedBy: user?.email || user?.id || "Unknown",
+        timestamp: new Date().toISOString(),
+        certificateData: students.map((s) => ({
+          name: s.studentName,
+          registration: s.registrationNumber,
+          degree: s.degree,
+        })),
+      });
+
+      console.log(`📤 Storing Merkle Root on blockchain...`);
+      console.log(`   merkleRoot: ${merkleRoot}`);
+      console.log(`   studentCount: ${students.length}`);
+
+      const tx = await contract.storeMerkleBatch(
+        merkleRoot,
+        metadata,
+        students.length,
+      );
+      console.log(`📤 Tx sent: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      const blockchainTime = (Date.now() - blockchainStartTime) / 1000;
+      console.log(`✅ Confirmed: ${receipt.blockNumber} (${blockchainTime}s)`);
+
+      // ============================================================
+      // STEP 4: SAVE ALL CERTIFICATES TO DATABASE
+      // ============================================================
+      console.log(`\n${"=".repeat(60)}`);
+      console.log(
+        `💾 PHASE 4: Database Storage (${students.length} certificates)`,
+      );
+      console.log(`${"=".repeat(60)}`);
+
+      const savedCertificates = [];
+      const saveErrors = [];
+
+      for (let i = 0; i < students.length; i++) {
+        const student = students[i];
+        const proof = tree.getProof(i);
+
+        try {
+          const certificate = await Certificate.create({
+            certificateHash: student.hash,
+            studentName: student.studentName,
+            fatherName: student.fatherName || "",
+            registrationNumber: student.registrationNumber,
+            rollNumber: student.rollNumber || "",
+            degree: student.degree,
+            session: student.session || "",
+            cgpa: student.cgpa || "",
+            universityName: user?.institution || "Unknown",
+            universityId: universityId,
+            issuer: user?.institution || "Unknown",
+            issueDate: new Date(),
+            transactionHash: receipt.hash,
+            blockNumber: receipt.blockNumber,
+            status: "verified",
+            ocrData: student.ocrData,
+            confidence: student.confidence || 0,
+            processingTime: student.processingTime || 0,
+            // Merkle Tree fields
+            merkleRoot: merkleRoot,
+            merkleProof: proof,
+            leafIndex: i,
+            batchId: receipt.hash,
+            batchLeafCount: students.length,
+            batchTransactionHash: receipt.hash,
+            isBatchCertificate: true,
+          });
+
+          savedCertificates.push({
+            studentName: certificate.studentName,
+            registrationNumber: certificate.registrationNumber,
+            certificateHash: certificate.certificateHash,
+            leafIndex: i,
+          });
+
+          console.log(
+            `✅ [${i + 1}/${students.length}] Saved: ${student.studentName}`,
+          );
+        } catch (error) {
+          console.error(
+            `❌ [${i + 1}/${students.length}] Save failed:`,
+            error.message,
+          );
+          saveErrors.push({
+            studentName: student.studentName,
+            registrationNumber: student.registrationNumber,
+            error: error.message,
+          });
+        }
+      }
+
+      // ============================================================
+      // STEP 5: FINAL SUMMARY
+      // ============================================================
+      const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+
+      console.log(`\n${"=".repeat(60)}`);
+      console.log(`✅ BULK UPLOAD COMPLETE (Merkle Tree)`);
+      console.log(`${"=".repeat(60)}`);
+      console.log(`📊 Total Files: ${files.length}`);
+      console.log(`✅ Successful OCR: ${students.length}`);
+      console.log(`💾 Saved to DB: ${savedCertificates.length}`);
+      console.log(`❌ Failed: ${errors.length + saveErrors.length}`);
+      console.log(`🔄 Duplicates Skipped: ${duplicateHashes.size}`);
+      console.log(`⛓️ Blockchain Tx: 1 (instead of ${students.length})`);
+      console.log(`⏱️ Total Time: ${totalTime}s`);
+      console.log(
+        `📈 Avg Time/File: ${(totalTime / files.length).toFixed(2)}s`,
+      );
+      console.log(`${"=".repeat(60)}`);
+
+      res.status(200).json({
+        success: true,
+        message: `Processed ${savedCertificates.length} of ${students.length} certificates successfully`,
+        summary: {
+          totalFiles: files.length,
+          totalProcessed: students.length,
+          savedToDatabase: savedCertificates.length,
+          failed: errors.length + saveErrors.length,
+          duplicatesSkipped: duplicateHashes.size,
+          merkleRoot: merkleRoot,
+          blockNumber: receipt.blockNumber,
+          transactionHash: receipt.hash,
+          totalTime: `${totalTime}s`,
+          blockchainTime: `${blockchainTime}s`,
+          avgTimePerFile: `${(totalTime / files.length).toFixed(2)}s`,
+        },
+        results: savedCertificates,
+        errors: [
+          ...errors.map((e) => ({
+            file: e.file,
+            error: e.error,
+          })),
+          ...saveErrors.map((e) => ({
+            student: e.studentName,
+            registration: e.registrationNumber,
+            error: e.error,
+          })),
+        ],
+      });
+    } catch (blockchainError) {
+      console.error("❌ Blockchain storage failed:", blockchainError.message);
+
+      // Cleanup any files that weren't cleaned up
+      files.forEach((file) => {
+        if (fs.existsSync(file.path)) {
+          try {
+            fs.unlinkSync(file.path);
+          } catch (e) {}
+        }
+      });
+
+      res.status(500).json({
+        success: false,
+        message: `Blockchain storage failed: ${blockchainError.message}`,
+        error: blockchainError.message,
+        studentsProcessed: students.length,
+      });
+    }
   } catch (error) {
-    console.error("Bulk upload error:", error);
+    console.error("❌ Bulk upload error:", error);
 
+    // Cleanup all files on major error
     if (req.files) {
       req.files.forEach((file) => {
         if (fs.existsSync(file.path)) {
@@ -457,13 +934,11 @@ export const bulkUploadCertificates = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || "Failed to process bulk upload",
+      error: error.message,
     });
   }
 };
 
-// ============================================================
-// VERIFY CERTIFICATE BY HASH
-// ============================================================
 export const verifyCertificateByHash = async (req, res) => {
   try {
     const { hash } = req.params || req.body;
