@@ -16,7 +16,7 @@ import ResetPassword from "./pages/ForgetPasswordPages/ResetPassword";
 import UniversityDashboard from "./dashboard/UniDashboard";
 import UserDashboard from "./dashboard/UserDashboard";
 import ProtectedRoute from "./ProtectedRout/ProtectedRoute";
-import AdminDashboard from "./pages/AdminDashboard";
+import AdminDashboard from "./dashboard/AdminDashboard";
 
 function App() {
   return (
