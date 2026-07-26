@@ -1,4 +1,3 @@
-// frontend/src/pages/ForgetPasswordPages/ForgetPassword.jsx
 import { useState } from "react";
 import {
   Mail,

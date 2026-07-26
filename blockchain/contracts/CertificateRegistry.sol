@@ -1,4 +1,3 @@
-// backend/src/contracts/CertificateRegistry.sol
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
@@ -62,9 +61,7 @@ contract CertificateRegistry {
         uint256 timestamp
     );
 
-// ============================================================
-// NEW EVENT FOR BATCH CERTIFICATE REVOCATION AUDIT
-// ============================================================
+//  EVENT FOR BATCH CERTIFICATE REVOCATION AUDIT
 
 event BatchCertificateRevoked(
     bytes32 indexed certificateHash,

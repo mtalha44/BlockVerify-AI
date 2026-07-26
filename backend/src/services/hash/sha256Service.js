@@ -62,16 +62,12 @@ class SHA256Service {
     };
   }
 
-  /**
-   * Verify hash matches student data.
-   */
+  /* Verify hash matches student data. */
   verify(student, hash) {
     return this.generate(student) === hash;
   }
 
-  /**
-   * Generate batch of hashes from students array.
-   */
+  /* Generate batch of hashes from students array. */
   generateBatch(students) {
     return students.map((student) => ({
       ...student,

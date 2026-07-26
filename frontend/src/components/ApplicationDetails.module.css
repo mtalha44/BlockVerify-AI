@@ -1,4 +1,3 @@
-/* frontend/src/components/ApplicationDetails.module.css */
 .overlay {
   position: fixed;
   top: 0;
@@ -192,5 +191,5 @@
 .textarea:focus {
   outline: none;
   border-color: #002677;
-  ring: 2px solid rgba(0, 38, 119, 0.1);
+  box-shadow: 0 0 0 2px rgba(0, 38, 119, 0.1);
 }

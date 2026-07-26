@@ -1,4 +1,3 @@
-// frontend/src/Pages/UploadCertificate/UploadPage.jsx
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -74,12 +73,6 @@ const CertificateUpload = () => {
       handleFileUpload(formattedFiles[0]);
     }
   };
-
-  // frontend/src/Pages/UploadCertificate/UploadPage.jsx
-  // Update the handleFileUpload function
-
-  // frontend/src/Pages/UploadCertificate/UploadPage.jsx
-  // Update the handleFileUpload function based on user role
 
   const handleFileUpload = async (fileInfo) => {
     setFiles((prev) =>

@@ -10,10 +10,8 @@ import protect from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// All routes require authentication
 router.use(protect);
 
-// Verify certificate with OCR data
 router.post("/verify-with-ocr", verifyWithOCR);
 
 // Verify certificate by hash

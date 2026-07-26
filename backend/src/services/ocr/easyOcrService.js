@@ -1,6 +1,3 @@
-// backend/src/services/ocr/easyOcrService.js
-// Make sure this is the complete file with proper error handling
-
 import axios from "axios";
 import FormData from "form-data";
 import fs from "fs";
@@ -54,7 +51,7 @@ class EasyOCRService {
       throw new Error("OCR Service not available after multiple attempts");
     }
   }
-  // Increase timeout and add retry logic
+  // timeout and add retry logic
 
   async extractFields(imagePath) {
     try {
@@ -76,12 +73,12 @@ class EasyOCRService {
       const formData = new FormData();
       formData.append("file", fs.createReadStream(imagePath));
 
-      // Increase timeout to 120 seconds for large files
+      // timeout to 120 seconds for large files
       const response = await axios.post(`${this.ocrUrl}/ocr`, formData, {
         headers: {
           ...formData.getHeaders(),
         },
-        timeout: 120000, // 120 seconds timeout
+        timeout: 120000, // 120 seconds
       });
 
       console.log(`📥 OCR Response Status: ${response.status}`);

@@ -1,4 +1,3 @@
-// frontend/src/ProtectedRout/ProtectedRoute.jsx
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import API from "../api/axios";

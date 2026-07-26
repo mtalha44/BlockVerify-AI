@@ -1,4 +1,3 @@
-// frontend/src/components/ApplicationDetails.jsx
 import React, { useState } from "react";
 import { X, FileText, CheckCircle, XCircle } from "lucide-react";
 import styles from "./ApplicationDetails.module.css";

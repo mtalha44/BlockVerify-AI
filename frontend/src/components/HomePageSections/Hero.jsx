@@ -1,4 +1,3 @@
-// In your App.jsx or HeroSection.jsx
 import React from 'react';
 import { Shield, CheckCircle, Lock, Cpu, LogIn } from 'lucide-react';
 import Navbar from '../Header/Navbar';

@@ -1,9 +1,8 @@
-// backend/src/models/Certificate.js
 import mongoose from "mongoose";
 
 const certificateSchema = new mongoose.Schema(
   {
-    // CORE CERTIFICATE DATA
+    
     certificateHash: {
       type: String,
       required: true,
@@ -45,9 +44,7 @@ const certificateSchema = new mongoose.Schema(
       default: "",
     },
 
-    // =====================================================
     // METADATA
-    // =====================================================
     universityId: {
       type: String,
       required: true,
@@ -61,9 +58,7 @@ const certificateSchema = new mongoose.Schema(
       default: Date.now,
     },
 
-    // =====================================================
     // BLOCKCHAIN INFO
-    // =====================================================
     transactionHash: {
       type: String,
       required: true,
@@ -72,9 +67,7 @@ const certificateSchema = new mongoose.Schema(
       type: Number,
     },
 
-    // =====================================================
     // MERKLE TREE INFORMATION (FOR EXCEL BATCH)
-    // =====================================================
     merkleRoot: {
       type: String,
       default: null,
@@ -105,9 +98,7 @@ const certificateSchema = new mongoose.Schema(
       default: false,
     },
 
-    // =====================================================
     // STATUS
-    // =====================================================
     status: {
       type: String,
       enum: ["pending", "verified", "revoked", "failed"],
@@ -131,9 +122,7 @@ const certificateSchema = new mongoose.Schema(
       default: null,
     },
 
-    // =====================================================
     // OCR DATA
-    // =====================================================
     ocrData: {
       type: Object,
       default: null,

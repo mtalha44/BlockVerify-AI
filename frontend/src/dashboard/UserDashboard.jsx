@@ -1,4 +1,3 @@
-// frontend/src/dashboard/UserDashboard.jsx
 import { Building2, LogOutIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BlockCertLogo from "../components/Header/BlockCertLogo";
@@ -36,7 +35,7 @@ const UserDashboard = () => {
 
   return (
     <main>
-      <header className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-4 flex items-center justify-between shadow-sm">
+      <header className="sticky top-0 z-[1000] bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
           <div>
             <BlockCertLogo />

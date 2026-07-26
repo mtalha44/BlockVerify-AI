@@ -1,4 +1,3 @@
-// frontend/src/pages/PageSections/UniversityLogin.jsx
 import React, { useState } from "react";
 import { Mail, MessageCircle, HelpCircle, Lock } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";

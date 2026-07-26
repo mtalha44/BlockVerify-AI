@@ -71,7 +71,7 @@ const UniversityDashboard = () => {
   // Transaction History Feed
   const [transactions, setTransactions] = useState([]);
 
-  // Helper: Generate a simulated cryptographic transactional hash
+  // Generating a simulated cryptographic transactional hash
   const generateSecuredHash = (studentName) => {
     let hash = "0x";
     const chars = "ABCDEF0123456789";
@@ -80,9 +80,6 @@ const UniversityDashboard = () => {
     }
     return hash;
   };
-
-  // frontend/src/dashboard/UniDashboard.jsx
-  // ADD these new functions after the state declarations
 
   // Fetch real transactions from backend
   const fetchTransactions = async () => {
@@ -137,9 +134,6 @@ const UniversityDashboard = () => {
     fetchTransactions();
     fetchDashboardStats();
   }, []);
-
-  // 1. Handle Certificate OCR Upload Integration
-  // frontend/src/dashboard/UniDashboard.jsx (Update the upload function)
 
   // Find the handleCertificateUpload function and update it:
   const handleCertificateUpload = async (e) => {
@@ -232,7 +226,7 @@ const UniversityDashboard = () => {
     }
   };
 
-  // 2. Execute Certificate Extraction - Use Real API
+  // 2. Execute Certificate Extraction - Using Real API
   const executeCertificateExtraction = async () => {
     if (!certificateFile) return;
 
@@ -407,14 +401,7 @@ const UniversityDashboard = () => {
     }
   };
 
-  // 2b. Handle Bulk Certificates PDF/PNG Selection & Process
-  // frontend/src/dashboard/UniDashboard.jsx
-  // Replace these functions with real API integration
-
-  // ============================================================
   // BULK FILES UPLOAD - REAL API
-  // ============================================================
-
   const handleBulkFilesUpload = (e) => {
     if (e.target.files) {
       const selected = Array.from(e.target.files);
@@ -455,9 +442,7 @@ const UniversityDashboard = () => {
     setBulkFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  // frontend/src/dashboard/UniDashboard.jsx
   // Update the executeBulkDocsProcess function
-
   const executeBulkDocsProcess = async () => {
     if (bulkFiles.length === 0) {
       alert("Please select at least one file to upload.");
@@ -720,7 +705,7 @@ const UniversityDashboard = () => {
 
       {/* Main Layout Area */}
       <main className="max-w-7xl mx-auto p-4 sm:p-8 space-y-8">
-        {/* 2. Top Interactive Statistics */}
+        {/* Top Interactive Statistics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Total Transactions Box */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-200/85 hover:border-blue-200 transition-all group">

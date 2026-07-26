@@ -1,4 +1,3 @@
-// frontend/src/components/ApplicationCard.jsx
 import React from "react";
 import styles from "./ApplicationCard.module.css";
 

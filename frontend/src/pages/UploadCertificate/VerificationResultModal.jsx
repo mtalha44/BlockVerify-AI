@@ -1,4 +1,3 @@
-// frontend/src/Pages/UploadCertificate/VerificationResultModal.jsx
 import React from "react";
 import { motion } from "motion/react";
 import {
@@ -96,7 +95,7 @@ const VerificationResultModal = ({ isOpen, onClose, result, certificate }) => {
                       University
                     </p>
                     <p className="font-medium text-slate-900">
-                      {certificate.universityName}
+                      Punjab University of Technology, Lahore
                     </p>
                   </div>
                   <div>

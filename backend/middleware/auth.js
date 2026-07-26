@@ -1,4 +1,3 @@
-// middleware/auth.js
 import jwt from "jsonwebtoken";
 
 export const authMiddleware = async (req, res, next) => {
@@ -42,7 +41,7 @@ export const optionalAuthMiddleware = (req, res, next) => {
       req.user = decoded;
     }
   } catch (error) {
-    // Token is invalid but we don't block the request
+    // Token is invalid but we don't block the request here, it will be handled in the route if necessary
   }
   next();
 };

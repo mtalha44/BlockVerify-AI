@@ -1,10 +1,8 @@
-// backend/src/middleware/authMiddleware.js
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
 const protect = async (req, res, next) => {
   try {
-    // Try to get token from cookie first, then from Authorization header
     let token = req.cookies.token;
 
     if (!token && req.headers.authorization) {
@@ -64,7 +62,7 @@ const protect = async (req, res, next) => {
   }
 };
 
-// Role-based authorization middleware
+// Role-based authorization middleware like is it user or admin or super admin
 export const authorize = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -85,4 +83,4 @@ export const authorize = (...allowedRoles) => {
   };
 };
 
-export default protect; // Default export
+export default protect; 

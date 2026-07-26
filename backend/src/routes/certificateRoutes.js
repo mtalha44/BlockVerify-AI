@@ -1,4 +1,3 @@
-// backend/src/routes/certificateRoutes.js
 import express from "express";
 import multer from "multer";
 import path from "path";
@@ -80,11 +79,9 @@ const upload = multer({
   fileFilter: fileFilter,
 });
 
-// ============================================================
 // OCR & VERIFICATION ROUTES - ADD THESE
-// ============================================================
 
-// 1. Upload certificate for OCR extraction ONLY (no blockchain storage)
+//    Upload certificate for OCR extraction ONLY (no blockchain storage)
 //    Used for: User verification flow where user reviews and corrects data
 router.post(
   "/upload-for-ocr",
@@ -104,7 +101,7 @@ router.post(
   uploadCertificateForVerification,
 );
 
-// 2. Upload and STORE certificate on blockchain (for University Admin)
+//    Upload and STORE certificate on blockchain (for University Admin)
 //    Used for: University Admin single upload - OCR + Blockchain storage
 router.post(
   "/upload",
@@ -131,10 +128,6 @@ router.post("/verify-ocr", protect, verifyWithOCR);
 router.post("/verify", protect, verifyCertificateByHash);
 router.get("/verify/:hash", protect, verifyCertificateByHash);
 
-// ============================================================
-// BULK & EXCEL IMPORT ROUTES
-// ============================================================
-
 // Bulk Excel Certificate Upload
 router.post(
   "/bulk-import",
@@ -143,7 +136,7 @@ router.post(
   bulkImportFromExcel,
 );
 
-// Bulk upload with increased limits
+// Bulk upload with 50 certificate limits
 router.post(
   "/bulk-upload",
   protect,
@@ -161,9 +154,7 @@ router.post(
   bulkUploadCertificates,
 );
 
-// ============================================================
 // REVOCATION ROUTES
-// ============================================================
 
 // Search students for revocation
 router.get("/search-students", protect, searchStudentsForRevocation);
@@ -171,9 +162,7 @@ router.get("/search-students", protect, searchStudentsForRevocation);
 // Revoke certificate
 router.post("/revoke/:hash", protect, revokeCertificate);
 
-// ============================================================
 // QUERY & STATS ROUTES
-// ============================================================
 
 // Get all certificates
 router.get("/certificates", protect, getCertificates);
@@ -190,9 +179,7 @@ router.get("/dashboard-stats", protect, getDashboardStats);
 // Search certificates
 router.get("/search", protect, searchCertificates);
 
-// ============================================================
 // DEBUG ROUTE (for development)
-// ============================================================
 
 router.get("/debug-contract", protect, async (req, res) => {
   try {

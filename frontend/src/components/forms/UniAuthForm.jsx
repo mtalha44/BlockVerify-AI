@@ -1,4 +1,3 @@
-// frontend/src/components/forms/UniAuthForm.jsx
 import { useState, useRef } from "react";
 import {
   Building2,

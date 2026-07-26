@@ -1,4 +1,3 @@
-// middleware/upload.js
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -18,7 +17,7 @@ if (!fs.existsSync(universityDir)) {
   fs.mkdirSync(universityDir, { recursive: true });
 }
 
-// Configure storage
+// For configure storage
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, universityDir);
@@ -52,15 +51,13 @@ const upload = multer({
   fileFilter: fileFilter,
 });
 
-// Configure for multiple files
 export const uploadUniversityFiles = upload.fields([
   { name: "accreditationFile", maxCount: 1 },
   { name: "registrationFile", maxCount: 1 },
   { name: "authorityFile", maxCount: 1 },
 ]);
 
-// Single file upload middleware
+//For single File Upload
 export const uploadSingle = upload.single("file");
-
-// Multiple files upload middleware
+//For Multiple File Upload
 export const uploadMultiple = upload.array("files", 10);

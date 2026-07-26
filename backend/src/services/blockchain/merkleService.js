@@ -1,4 +1,3 @@
-// backend/src/services/blockchain/merkleService.js
 import { ethers } from "ethers";
 
 class MerkleTree {

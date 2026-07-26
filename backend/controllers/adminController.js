@@ -1,4 +1,3 @@
-// controllers/adminController.js
 import User from "../models/User.js";
 
 export const bootstrapAdmin = async (req, res, next) => {
@@ -62,7 +61,7 @@ export const bootstrapAdmin = async (req, res, next) => {
   }
 };
 
-// Make a user admin
+// user admin
 export const makeAdmin = async (req, res, next) => {
   try {
     const { userId } = req.body;
@@ -90,7 +89,7 @@ export const makeAdmin = async (req, res, next) => {
   }
 };
 
-// Get admin profile
+// admin profile
 export const getAdminProfile = async (req, res, next) => {
   try {
     const admin = await User.findById(req.user._id).select("-password");
@@ -105,7 +104,7 @@ export const getAdminProfile = async (req, res, next) => {
   }
 };
 
-// Update admin profile
+// For updating admin profile
 export const updateAdminProfile = async (req, res, next) => {
   try {
     const { fullName, institution, email } = req.body;
@@ -137,7 +136,7 @@ export const updateAdminProfile = async (req, res, next) => {
   }
 };
 
-// Get all admins
+// To get all admins / Its for System admin
 export const getAllAdmins = async (req, res, next) => {
   try {
     const admins = await User.find({ role: "admin" }).select("-password");

@@ -1,4 +1,3 @@
-// frontend/src/api/axios.js
 import axios from "axios";
 
 // API Base URL
@@ -14,10 +13,9 @@ const API = axios.create({
   },
 });
 
-// Request interceptor - NO custom headers for auth
+// Request interceptor - NO custom headers used for auth
 API.interceptors.request.use(
   (config) => {
-    // Don't add any custom headers for file uploads
     // Cookies will be sent automatically via withCredentials
 
     // Debug logging
@@ -132,12 +130,9 @@ export const apiHelpers = {
 
 // Certificate API endpoints
 export const certificateAPI = {
-  // ============================================================
   // OCR & VERIFICATION FLOW (For Regular Users)
-  // ============================================================
-
-  // 1. Upload certificate for OCR extraction ONLY (no blockchain storage)
-  //    Used for: User verification flow where user reviews and corrects data
+  // Upload certificate for OCR extraction ONLY (no blockchain storage)
+  // Used for: User verification flow where user reviews and corrects data
   uploadForOCR: (file, onProgress) => {
     return apiHelpers.uploadFile(
       "/certificates/upload-for-ocr",
@@ -146,14 +141,14 @@ export const certificateAPI = {
     );
   },
 
-  // 2. Upload and STORE on blockchain (For University Admin)
-  //    Used for: University Admin single upload - OCR + Blockchain storage
+  // Upload and STORE on blockchain (For University Admin)
+  // Used for: University Admin single upload - OCR + Blockchain storage
   uploadAndStore: (file, onProgress) => {
     return apiHelpers.uploadFile("/certificates/upload", file, onProgress);
   },
 
-  // 3. Verify certificate with corrected OCR data
-  //    After user edits the OCR data, this verifies against blockchain
+  // Verify certificate with corrected OCR data
+  // After user edits the OCR data, this verifies against blockchain
   verifyWithOCR: (ocrData, originalData, fileInfo) => {
     return API.post("/certificates/verify-ocr", {
       ocrData,
@@ -167,11 +162,7 @@ export const certificateAPI = {
     return API.get(`/certificates/verify/${hash}`);
   },
 
-  // ============================================================
-  // BULK & BATCH OPERATIONS
-  // ============================================================
-
-  // 5. Bulk upload multiple certificates (University Admin)
+  // Bulk upload multiple certificates (University Admin)
   bulkUpload: (files, onProgress) => {
     return apiHelpers.uploadMultipleFiles(
       "/certificates/bulk-upload",
@@ -180,46 +171,39 @@ export const certificateAPI = {
     );
   },
 
-
-  // ============================================================
   // QUERY OPERATIONS
-  // ============================================================
 
-  // 6. Get all certificates with pagination and filters
+  // Get all certificates with pagination and filters
   getCertificates: (params = {}) => {
     return API.get("/certificates/certificates", { params });
   },
 
-  // 7. Get single certificate by ID
+  //  Get single certificate by ID
   getCertificate: (id) => {
     return API.get(`/certificates/certificate/${id}`);
   },
 
-  // 8. Get certificate statistics
+  // Get certificate statistics
   getStats: () => {
     return API.get("/certificates/stats");
   },
 
-  // 9. Get dashboard statistics
+  // Get dashboard statistics
   getDashboardStats: () => {
     return API.get("/certificates/dashboard-stats");
   },
 
-  // 10. Search certificates
+  // Search certificates
   searchCertificates: (query) => {
     return API.get("/certificates/search", { params: { query } });
   },
 
-  // 11. Search students for revocation
+  // Search students for revocation
   searchStudents: (query) => {
     return API.get("/certificates/search-students", { params: { query } });
   },
 
-  // ============================================================
-  // REVOCATION OPERATIONS
-  // ============================================================
-
-  // 12. Revoke a certificate
+  //  Revoke a certificate
   revokeCertificate: (hash, reason) => {
     return API.post(`/certificates/revoke/${hash}`, { reason });
   },

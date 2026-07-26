@@ -1,4 +1,3 @@
-// routes/universityRoutes.js
 import express from "express";
 import {
   submitEnrollmentApplication,

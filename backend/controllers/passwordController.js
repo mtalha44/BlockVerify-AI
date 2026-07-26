@@ -14,19 +14,16 @@ export const forgotPassword = async (req, res, next) => {
     const user = await User.findOne({ email: email.toLowerCase() });
 
     if (!user) {
-      // Don't reveal if email exists for security
       return res.status(200).json({
         message: "If this email exists in our system, a reset link has been sent",
       });
     }
 
-    // Generate unique reset token
     const resetToken = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
 
     await PasswordReset.deleteMany({ userId: user._id, isUsed: false });
 
-    // Save reset token to database
     const resetRecord = new PasswordReset({
       userId: user._id,
       resetToken: hashedToken,
@@ -35,10 +32,8 @@ export const forgotPassword = async (req, res, next) => {
 
     await resetRecord.save();
 
-    // Create reset link
     const resetLink = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    // Send email
     const emailResult = await sendResetPasswordEmail(
       user.email,
       resetLink,
@@ -73,10 +68,8 @@ export const resetPassword = async (req, res, next) => {
       return res.status(400).json({ message: "Password must be at least 8 characters" });
     }
 
-    // Hash the provided token
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
-    // Find reset record
     const resetRecord = await PasswordReset.findOne({
       resetToken: hashedToken,
       isUsed: false,

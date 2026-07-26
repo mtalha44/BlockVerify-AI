@@ -1,15 +1,12 @@
-// backend/src/services/verification/verificationService.js
 import Certificate from "../../models/Certificate.js";
 import blockchainConfig from "../../config/blockchain.js";
 import sha256Service from "../hash/sha256Service.js";
 
 class VerificationService {
-  /**
-   * Verify certificate by hash - supports both single and batch
-   */
+  /* Verify certificate by hash - supports both single and batch  */
   async verifyCertificate(hash) {
     try {
-      // Step 1: Check MongoDB first
+      // Check MongoDB first
       const certificate = await Certificate.findOne({ certificateHash: hash });
 
       if (!certificate) {
@@ -20,7 +17,7 @@ class VerificationService {
         };
       }
 
-      // Step 2: Check if revoked
+      // Check if revoked
       if (certificate.status === "revoked") {
         return {
           valid: false,
@@ -34,7 +31,7 @@ class VerificationService {
         };
       }
 
-      // Step 3: Verify on blockchain
+      // Verify on blockchain
       await blockchainConfig.initialize();
       const contract = blockchainConfig.getContract();
 
@@ -116,9 +113,7 @@ class VerificationService {
     }
   }
 
-  /**
-   * Verify certificate from OCR data
-   */
+  /* Verify certificate from OCR data */
   async verifyFromOCR(ocrData) {
     try {
       // Generate hash from OCR data
@@ -139,9 +134,7 @@ class VerificationService {
     }
   }
 
-  /**
-   * Verify Merkle proof for batch certificate
-   */
+  /* Verify Merkle proof for batch certificate */
   async verifyMerkleProof(certificate) {
     try {
       if (
@@ -191,9 +184,7 @@ class VerificationService {
     }
   }
 
-  /**
-   * Get full batch by merkle root
-   */
+  /* Get full batch by merkle root */
   async getBatchByMerkleRoot(merkleRoot) {
     const certificates = await Certificate.find({ merkleRoot })
       .sort({ leafIndex: 1 })

@@ -1,4 +1,3 @@
-// backend/models/User.js
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
@@ -15,7 +14,6 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // Use 'universityId' (matches your MongoDB)
     universityId: {
       type: String,
       unique: true,
@@ -66,7 +64,7 @@ userSchema.pre("save", async function () {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Method to compare passwords
+//comparing passwords here
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };

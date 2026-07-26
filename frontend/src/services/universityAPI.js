@@ -2,7 +2,7 @@ import axios from "axios";
 
 const API_BASE_URL = "http://localhost:5000/api";
 
-// Create axios instance with default config
+// Creating axios instance with default config
 const API = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true, // This sends cookies automatically

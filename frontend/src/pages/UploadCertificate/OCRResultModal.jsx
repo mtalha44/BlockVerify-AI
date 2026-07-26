@@ -1,4 +1,3 @@
-// frontend/src/Pages/UploadCertificate/OCRResultModal.jsx
 import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import {

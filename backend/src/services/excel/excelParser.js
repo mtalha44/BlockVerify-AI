@@ -1,4 +1,3 @@
-// backend/src/services/excel/excelParser.js
 import xlsx from "xlsx";
 import path from "path";
 
@@ -8,12 +7,11 @@ class ExcelParser {
    * Only extracts: studentName, fatherName, registrationNumber, rollNumber, degree, session, cgpa
    */
   parse(filePath) {
-    // Validate file exists
     if (!filePath) {
       throw new Error("No file path provided");
     }
 
-    // Check file extension
+    // Checking file extension
     const ext = path.extname(filePath).toLowerCase();
     const validExtensions = [".xlsx", ".xls", ".csv"];
     if (!validExtensions.includes(ext)) {
@@ -104,10 +102,7 @@ class ExcelParser {
     };
   }
 
-  /**
-   * Convert Excel row into standard student object.
-   * Only extracts the 7 required fields
-   */
+  /* Convert Excel row into standard student object.   */
   normalizeRow(row) {
     return {
       studentName: (
@@ -156,9 +151,7 @@ class ExcelParser {
     };
   }
 
-  /**
-   * Validate required student fields.
-   */
+  /* Validate required student fields. */
   validateStudent(student) {
     if (!student.studentName) {
       return { valid: false, message: "Student Name missing" };
@@ -172,9 +165,7 @@ class ExcelParser {
     return { valid: true };
   }
 
-  /**
-   * Validate file size and type
-   */
+  /* Validate file size and type */
   validateFile(file) {
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {

@@ -1,4 +1,3 @@
-// backend/src/services/certificate/certificateBatchService.js
 import fs from "fs";
 import Certificate from "../../models/Certificate.js";
 import excelParser from "../excel/excelParser.js";
@@ -7,25 +6,17 @@ import blockchainConfig from "../../config/blockchain.js";
 import { createMerkleTreeFromStudents } from "../blockchain/merkleService.js";
 
 class CertificateBatchService {
-  /**
-   * Import certificates from Excel file
-   * Only stores the 7 fields: studentName, fatherName, registrationNumber,
-   * rollNumber, degree, session, cgpa
-   */
+  /* Import certificates from Excel file   */
   async importExcel(file, user) {
     try {
-      // -----------------------------
-      // 1. Validate File
-      // -----------------------------
+      //  Validate File
       if (!file || !file.path) {
         throw new Error("No file provided");
       }
 
       excelParser.validateFile(file);
 
-      // -----------------------------
-      // 2. Parse Excel - NO university name
-      // -----------------------------
+      // Parse Excel
       const parsed = excelParser.parse(file.path);
 
       if (parsed.students.length === 0) {
@@ -40,12 +31,9 @@ class CertificateBatchService {
         `📊 Parsed ${parsed.students.length} valid records, ${parsed.errors.length} errors`,
       );
 
-      // -----------------------------
-      // 3. Generate SHA256 Hash for each student
-      //    Using ONLY the 7 fields
-      // -----------------------------
+      // Generate SHA256 Hash for each student
       const students = parsed.students.map((student) => {
-        // Create a clean object with ONLY the 7 fields
+        // Create a clean object with the following 7 fields
         const cleanStudent = {
           studentName: student.studentName,
           fatherName: student.fatherName || "",
@@ -64,18 +52,13 @@ class CertificateBatchService {
       });
 
       console.log(`🔑 Generated ${students.length} hashes`);
-
-      // -----------------------------
-      // 4. Build Merkle Tree
-      // -----------------------------
+      //  Build Merkle Tree
       const tree = createMerkleTreeFromStudents(students);
       const merkleRoot = tree.getRoot();
 
       console.log(`🌳 Merkle Root: ${merkleRoot}`);
 
-      // -----------------------------
-      // 5. Store Merkle Root on Blockchain
-      // -----------------------------
+      //  Store Merkle Root on Blockchain
       await blockchainConfig.initialize();
       const contract = blockchainConfig.getContract();
 
@@ -104,10 +87,7 @@ class CertificateBatchService {
 
       const batchId = tx.hash;
 
-      // -----------------------------
-      // 6. Save Certificates to Database
-      //    Store ONLY the 7 fields
-      // -----------------------------
+      // Save Certificates to Database
       const savedCertificates = [];
       const savedErrors = [];
 
@@ -130,7 +110,7 @@ class CertificateBatchService {
             // University info is stored for tracking but NOT used in hash
             universityId: user.universityId || user.id,
             issuer: user.institution || "Unknown",
-            universityName: user.institution || "Unknown", // Keep for database tracking
+            universityName: user.institution || "Unknown", // Keep it for database tracking
 
             // Blockchain info
             transactionHash: tx.hash,
@@ -165,9 +145,7 @@ class CertificateBatchService {
         `💾 Saved ${savedCertificates.length} certificates, ${savedErrors.length} errors`,
       );
 
-      // -----------------------------
-      // 7. Delete Uploaded Excel
-      // -----------------------------
+      // Delete Uploaded Excel
       if (file?.path && fs.existsSync(file.path)) {
         try {
           fs.unlinkSync(file.path);
@@ -176,9 +154,7 @@ class CertificateBatchService {
         }
       }
 
-      // -----------------------------
-      // 8. Response
-      // -----------------------------
+      // Response
       return {
         success: true,
         message: `${savedCertificates.length} of ${students.length} certificates imported successfully.`,

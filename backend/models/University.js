@@ -99,7 +99,7 @@ const universitySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Index for faster queries
+// Using index for faster queries
 universitySchema.index({ status: 1 });
 universitySchema.index({ email: 1 });
 universitySchema.index({ domain: 1 });

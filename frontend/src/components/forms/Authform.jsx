@@ -1,4 +1,3 @@
-// frontend/src/components/forms/Authform.jsx
 import { useState } from "react";
 import { Lock, Mail, User, Eye, EyeOff } from "lucide-react";
 import API from "../../api/axios";

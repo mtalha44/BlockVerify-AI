@@ -1,4 +1,3 @@
-// backend/src/controllers/verificationController.js
 import Certificate from "../models/Certificate.js";
 import blockchainConfig from "../config/blockchain.js";
 import verificationService from "../services/verification/verificationService.js";
@@ -8,9 +7,6 @@ import sha256Service from "../services/hash/sha256Service.js";
  * Verify certificate with OCR data
  * Handles both single and batch (Merkle tree) verification
  */
-// backend/src/controllers/verificationController.js
-// Update the verifyWithOCR function
-
 export const verifyWithOCR = async (req, res) => {
   try {
     const { ocrData, originalData, file } = req.body;
@@ -26,7 +22,7 @@ export const verifyWithOCR = async (req, res) => {
 
     console.log("🔍 Verifying certificate with OCR data...");
 
-    // Step 1: Generate hash from OCR data - ONLY 7 fields
+    // Generate hash from OCR data - ONLY 7 fields
     const studentData = {
       studentName: ocrData.student_name,
       fatherName: ocrData.father_name || "",
@@ -41,16 +37,16 @@ export const verifyWithOCR = async (req, res) => {
     const generatedHash = sha256Service.generate(studentData);
     console.log(`🔑 Generated hash: ${generatedHash}`);
 
-    // Step 2: Verify hash against blockchain
+    // Verify hash against blockchain
     await blockchainConfig.initialize();
     const contract = blockchainConfig.getContract();
 
-    // Step 3: Check both single certificate and Merkle tree
+    // Check both single certificate and Merkle tree
     let isValid = false;
     let certificate = null;
     let verificationMethod = "unknown";
 
-    // First try: Direct certificate verification
+    // Direct certificate verification
     try {
       const result = await contract.verifyCertificate(generatedHash);
       if (result.exists && !result.isRevoked) {
@@ -102,7 +98,7 @@ export const verifyWithOCR = async (req, res) => {
       }
     }
 
-    // Step 4: Prepare response
+    // Prepare response
     if (isValid) {
       if (!certificate) {
         certificate = await Certificate.findOne({

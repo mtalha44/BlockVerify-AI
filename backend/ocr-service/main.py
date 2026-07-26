@@ -1,4 +1,3 @@
-# backend/ocr-service/main.py
 import time
 import fitz
 import cv2
@@ -16,17 +15,10 @@ app = FastAPI(
     title="BlockVerify Crop OCR"
 )
 
-# =====================================================
-# GLOBAL OCR MODEL
-# =====================================================
-
+# OCR Model
 reader = None
 extractor = None
 READY = False
-
-# =====================================================
-# STARTUP
-# =====================================================
 
 @app.on_event("startup")
 def startup():
@@ -52,10 +44,7 @@ def startup():
     print("EasyOCR Ready")
 
 
-# =====================================================
-# HEALTH CHECK ENDPOINT - ADD THIS
-# =====================================================
-
+#To check helth of the service
 @app.get("/health")
 async def health_check():
     return {
@@ -64,11 +53,7 @@ async def health_check():
         "service": "BlockVerify Crop OCR"
     }
 
-
-# =====================================================
-# PDF TO IMAGE
-# =====================================================
-
+#Converting pdf to img
 def pdf_to_image(pdf_bytes):
 
     document = fitz.open(
@@ -110,16 +95,12 @@ def pdf_to_image(pdf_bytes):
 
     return img
 
-
-# =====================================================
-# IMAGE PREPROCESS
-# =====================================================
-
+#img processing here
 def preprocess(img):
 
     h, w = img.shape[:2]
 
-    # resize huge images only
+    # Help to resize huge images only
     if w > 1800:
 
         scale = 1800 / w
@@ -135,11 +116,7 @@ def preprocess(img):
 
     return img
 
-
-# =====================================================
-# OCR API
-# =====================================================
-
+#Ocr Api 
 @app.post("/ocr")
 async def ocr(
     file: UploadFile = File(...)
@@ -165,19 +142,11 @@ async def ocr(
 
         filename = file.filename.lower()
 
-        # ==========================================
-        # PDF
-        # ==========================================
-
         if filename.endswith(".pdf"):
 
             img = pdf_to_image(
                 contents
             )
-
-        # ==========================================
-        # IMAGE
-        # ==========================================
 
         else:
 
@@ -227,11 +196,6 @@ async def ocr(
             },
             status_code=500
         )
-
-
-# =====================================================
-# RUN
-# =====================================================
 
 if __name__ == "__main__":
 
