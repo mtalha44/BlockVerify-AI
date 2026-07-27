@@ -26,7 +26,7 @@ const TrustAndStats = () => {
 
 
   return (
-    <section className="pt-14 px-4 bg-gradient-to-b ">
+    <section id="partners" className="pt-14 px-4 bg-gradient-to-b ">
       <div className="max-w-6xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16">

@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 
 // Import Routes
+import contactRoutes from "./routes/contactRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import certificateRoutes from "./src/routes/certificateRoutes.js";
 import passwordRoutes from "./routes/passwordRoutes.js";
@@ -99,6 +100,7 @@ app.use("/api/verification", verificationRoutes);
 app.use("/api/password", passwordRoutes);
 app.use("/api/university", universityRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/contact", contactRoutes);
 
 //  HEALTH CHECK 
 app.get("/api/health", (req, res) => {

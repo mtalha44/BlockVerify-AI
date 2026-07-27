@@ -39,11 +39,11 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="grid grid-cols-2 min-[985px]:grid-cols-[auto_545px] max-[985px]:grid-cols-1 ">
-        <div className="flex items-center flex-col justify-center">
+        <div className="flex items-center flex-col justify-center right-side">
           <div className="bg-white w-full pt-4 pl-8 pr-6 pb-4 border-r border-gray-200 max-[485px]:pr-0 max-[485px]:pl-0 ">
             <BlockCertLogo />
           </div>
-          <div className=" w-full mt-8 mb-8 max-w-md max-[1115px]:p-3 ">
+          <div className=" w-full mt-8 mb-8 max-w-md max-[1115px]:p-3">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
               <AuthForm type="login" />
               <p className="text-center pt-3 text-sm">
@@ -59,13 +59,13 @@ const LoginPage = () => {
             <div></div>
           </div>
         </div>
-        <div className="flex flex-col justify-center bg-white pt-4 pb-4 pl-8 pr-4 right-side">
+        <div className="flex flex-col justify-center bg-white pt-4 pb-4 pl-8 pr-4 ">
           <div className="desc-part ">
             <div className="mb-7">
-              <h2 className="text-3xl font-bold text-white mb-4 ">
+              <h2 className="text-3xl font-bold mb-4 text-color-primary ">
                 Secure Certificate Verification
               </h2>
-              <p className="text-gray-400">
+              <p className="text-gray-600">
                 Use BlockVerify-AI to verify certificates securely with
                 blockchain technology.
               </p>
@@ -77,10 +77,10 @@ const LoginPage = () => {
                     {feature.icon}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-white">
+                    <h4 className="font-semibold text-color-primary">
                       {feature.title}
                     </h4>
-                    <p className="text-sm text-gray-400">
+                    <p className="text-sm text-gray-600 ">
                       {feature.description}
                     </p>
                   </div>

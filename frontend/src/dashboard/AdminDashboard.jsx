@@ -166,7 +166,7 @@ const handleReject = async (appId, rejectionReason) => {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
+    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-slate-50">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -274,7 +274,7 @@ const handleReject = async (appId, rejectionReason) => {
                     {getStatusCount("rejected")}
                   </p>
                 </div>
-                <div className="p-2.5 bg-gradient-to-br from-red-400 to-red-500 rounded-xl shadow-lg shadow-red-400/20">
+                <div className="p-2.5 bg-linear-to-br from-red-400 to-red-500 rounded-xl shadow-lg shadow-red-400/20">
                   <XCircle className="w-5 h-5 text-white" />
                 </div>
               </div>
@@ -342,7 +342,7 @@ const handleReject = async (appId, rejectionReason) => {
         {/* Error Message */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
             <div>
               <p className="font-medium">Error loading applications</p>
               <p className="text-red-600/80">{error}</p>

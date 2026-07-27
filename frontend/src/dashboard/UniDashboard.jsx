@@ -26,7 +26,7 @@ import BlockCertLogo from "../components/Header/BlockCertLogo";
 import API from "../api/axios";
 
 const UniversityDashboard = () => {
-  // --- REAL-TIME DYNAMIC STATES ---
+  // REAL-TIME DYNAMIC STATES
   const [activeTab, setActiveTab] = useState("upload");
 
   // Stats Counters
@@ -826,7 +826,7 @@ const UniversityDashboard = () => {
         </div>
 
         {/* 3b. Interactive Active Tab Split Content Layout */}
-        <div className="min-h-[400px]">
+        <div className="min-h-100">
           <AnimatePresence mode="wait">
             {activeTab === "upload" && (
               <motion.div
@@ -837,7 +837,7 @@ const UniversityDashboard = () => {
                 className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch"
               >
                 {/* Tab Info Sidebar (5 Columns) */}
-                <div className="lg:col-span-5 bg-[#002677]/[0.02] border border-blue-105 rounded-2xl p-6 sm:p-8 flex flex-col justify-between">
+                <div className="lg:col-span-5 bg-[#002677]/2 border border-blue-105 rounded-2xl p-6 sm:p-8 flex flex-col justify-between">
                   <div>
                     <span className="text-[10px] font-bold text-[#002677] bg-blue-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
                       Methodology 01

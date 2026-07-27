@@ -173,7 +173,7 @@ const UniversityActivation = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex flex-col">
+    <div className="min-h-screen bg-primary-50 flex flex-col">
       <div className="bg-white pt-4 pl-8 pr-6 pb-4 border-r flex justify-between border-gray-200 max-[485px]:pr-0 max-[485px]:pl-0">
         <BlockCertLogo />
         <a

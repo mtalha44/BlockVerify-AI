@@ -99,7 +99,7 @@ const OCRResultModal = ({
     const fieldValue = editedData[key] || "";
 
     return (
-      <div key={key} className="space-y-1">
+      <div key={key} className="space-y-1 z-10">
         <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider flex items-center gap-1">
           {label}
           {isRequired && <span className="text-red-500">*</span>}

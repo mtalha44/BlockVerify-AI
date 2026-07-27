@@ -35,7 +35,7 @@ const UserDashboard = () => {
 
   return (
     <main>
-      <header className="sticky top-0 z-[1000] bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-4 flex items-center justify-between shadow-sm">
+      <header className="sticky top-0 z-1 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-8 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
           <div>
             <BlockCertLogo />

@@ -123,3 +123,46 @@ export const sendUniversityRejectionEmail = async (
     }),
   });
 };
+
+
+export const sendContactEmail = async ({ name, email, phone, message }) => {
+  const adminEmail = process.env.EMAIL_USER || "mt4458649@gmail.com";
+  
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+      <div style="background: #002677; padding: 24px; text-align: center; color: white;">
+        <h2 style="margin: 0; font-size: 24px;">BlockVerify-AI</h2>
+        <p style="margin: 8px 0 0; opacity: 0.9;">New Contact Form Submission</p>
+      </div>
+      <div style="padding: 30px 24px; background: #ffffff;">
+        <h3 style="margin-top: 0; color: #002677; font-size: 18px;">Contact Details</h3>
+        
+        <div style="background: #f8fafc; padding: 16px; border-radius: 6px; margin: 16px 0;">
+          <p style="margin: 8px 0;"><strong>Name:</strong> ${name}</p>
+          <p style="margin: 8px 0;"><strong>Email:</strong> <a href="mailto:${email}" style="color: #002677;">${email}</a></p>
+          <p style="margin: 8px 0;"><strong>Phone:</strong> ${phone}</p>
+        </div>
+        
+        <div style="margin: 16px 0;">
+          <p style="margin: 0 0 8px; font-weight: 600; color: #1e293b;">Message:</p>
+          <div style="background: #f8fafc; padding: 16px; border-radius: 6px; border-left: 4px solid #002677;">
+            <p style="margin: 0; white-space: pre-wrap; color: #334155;">${message}</p>
+          </div>
+        </div>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+        
+        <p style="margin: 0; font-size: 12px; color: #6b7280;">
+          This email was sent from the BlockVerify-AI contact form.
+        </p>
+      </div>
+    </div>
+  `;
+
+  return sendMail({
+    to: adminEmail,
+    subject: `📧 New Contact Form Message from ${name}`,
+    html,
+    devLink: null,
+  });
+};

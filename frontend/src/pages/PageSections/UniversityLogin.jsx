@@ -44,7 +44,7 @@ const UniversityLogin = () => {
   };
 
   return (
-    <div className="right-side bg-gray-50 flex flex-col justify-center">
+    <div className="right-side  bg-gray-50 flex flex-col justify-center">
       {/* Main Content */}
       <div className="grow main-right-side flex items-center justify-center px-4 py-12">
         <div className="w-[75vh]">

@@ -113,7 +113,7 @@ const AuthForm = ({ type }) => {
 
   return (
     <div className="max-w-md w-full">
-      <div className="text-center mb-8">
+      <div className="text-center mb-8 ">
         <div className="flex items-center justify-center gap-3 mb-4">
           <div>
             <h2 className="text-3xl font-semibold text-color-primary mb-2">
@@ -274,7 +274,7 @@ const AuthForm = ({ type }) => {
               htmlFor="rememberMe"
               className="ml-2 block text-sm text-color-primary"
             >
-              Remember me for 30 days
+              Remember me for 7 days
             </label>
           </div>
         )}

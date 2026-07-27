@@ -56,7 +56,7 @@ export default function ApplicationCard({ application, onSelect }) {
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-gradient-to-br from-[#002677]/10 to-[#002677]/5 rounded-lg">
+            <div className="p-1.5 bg-linear-to-br from-[#002677]/10 to-[#002677]/5 rounded-lg">
               <Building2 className="w-4 h-4 text-[#002677]" />
             </div>
             <h3 className="text-base font-semibold text-slate-900 truncate">
@@ -80,23 +80,23 @@ export default function ApplicationCard({ application, onSelect }) {
       {/* Content */}
       <div className="space-y-2 text-sm">
         <div className="flex items-center gap-2 text-slate-600">
-          <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+          <Mail className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span className="truncate">
             {application.authorizedEmail || application.email}
           </span>
         </div>
         <div className="flex items-center gap-2 text-slate-600">
-          <MapPin className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span>
             {application.city}, {application.country}
           </span>
         </div>
         <div className="flex items-center gap-2 text-slate-600">
-          <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+          <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span>{application.primaryContactName}</span>
         </div>
         <div className="flex items-center gap-2 text-slate-600">
-          <Calendar className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span>Submitted: {formatDate(application.createdAt)}</span>
         </div>
       </div>

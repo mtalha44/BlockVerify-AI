@@ -2,8 +2,8 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "C:\\Apps\\BlockVerify-AI\\blockchain\\contracts\\CertificateRegistry.sol": {
-      "lastModificationDate": 1782786746164,
-      "contentHash": "48f36cd163800cd068a6057b51c4327c",
+      "lastModificationDate": 1785089542476,
+      "contentHash": "390707b234c64fde7ee420798823f468",
       "sourceName": "contracts/CertificateRegistry.sol",
       "solcConfig": {
         "version": "0.8.19",

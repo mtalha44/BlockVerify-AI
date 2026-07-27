@@ -294,7 +294,7 @@ const CertificateUpload = () => {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3 }}
-          className={`relative group h-80 rounded-3xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center p-8 bg-white overflow-hidden cursor-pointer ${
+          className={`relative group h-80 rounded-3xl z-0 border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center p-8 bg-white overflow-hidden cursor-pointer ${
             dragActive ?
               "border-slate-900 bg-slate-50 ring-4 ring-slate-100"
             : "border-slate-200 hover:border-slate-400 hover:bg-slate-50/50"

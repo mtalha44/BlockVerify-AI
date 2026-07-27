@@ -7,12 +7,12 @@ import {
   LogIn,
   FileCheck,
   Users,
-  BookOpen,
   Mail,
   Home,
   Cpu,
   Lock,
   Play,
+  UserRoundCheck,
 } from "lucide-react";
 
 const Navbar = () => {
@@ -21,10 +21,10 @@ const Navbar = () => {
 
   const navItems = [
     { name: "Home", href: "#Home", icon: Home },
-    { name: "Features", href: "#Features", icon: FileCheck },
-    { name: "Documentation", href: "#docs", icon: BookOpen },
+    { name: "Features", href: "#features", icon: FileCheck },
+    { name: "Partners", href: "#partners", icon: UserRoundCheck },
     { name: "Team", href: "#team", icon: Users },
-    { name: "Contact", href: "#contact", icon: Mail },
+    { name: "Contact", href: "/contact", icon: Mail },
   ];
 
   const [navLink, setNavlinkActive] = useState("Home");

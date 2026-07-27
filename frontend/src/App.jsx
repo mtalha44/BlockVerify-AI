@@ -8,6 +8,7 @@ import Layout, {
   LayoutWithFooter,
   LayoutWithoutNavbar,
 } from "./pages/Layout/Outlet";
+import ContactPage from "./pages/ContactPage/ContactPage";
 import CertificateUpload from "./pages/UploadCertificate/UploadPage";
 import ForgotPassword from "./pages/ForgetPasswordPages/ForgetPassword";
 import UniversityEnrollment from "./components/forms/UniAuthForm";
@@ -28,6 +29,7 @@ function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/institution-signin" element={<UniLoginPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route
             path="/UniversityEnrollment"
             element={<UniversityEnrollment />}
