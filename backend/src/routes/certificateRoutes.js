@@ -15,10 +15,10 @@ import {
   searchStudentsForRevocation,
   bulkUploadCertificates,
   uploadCertificateForVerification,
-} from "../controllers/certificateController.js";
+} from "../controllers/certificate/index.js";
 import { verifyWithOCR } from "../controllers/verificationController.js";
 import protect from "../../middleware/authMiddleware.js";
-import { bulkImportFromExcel } from "../controllers/certificateController.js";
+import { bulkImportFromExcel } from "../controllers/certificate/excelController.js";
 import blockchainConfig from "../config/blockchain.js";
 
 const router = express.Router();

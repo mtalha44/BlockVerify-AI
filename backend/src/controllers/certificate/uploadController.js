@@ -1,13 +1,9 @@
-import Certificate from "../models/Certificate.js";
-import BatchJob from "../models/BatchJob.js";
-import certificateBatchService from "../services/certificate/certificateBatchService.js";
-import easyOCRService from "../services/ocr/easyOcrService.js";
-import blockchainConfig from "../config/blockchain.js";
-import sha256Service from "../services/hash/sha256Service.js";
+import Certificate from "../../models/Certificate.js";
+import easyOCRService from "../../services/ocr/easyOcrService.js";
+import blockchainConfig from "../../config/blockchain.js";
+import sha256Service from "../../services/hash/sha256Service.js";
+import { createMerkleTreeFromStudents } from "../../services/blockchain/merkleService.js";
 import fs from "fs";
-import xlsx from "xlsx";
-import { createMerkleTreeFromStudents } from "../services/blockchain/merkleService.js";
-import crypto from "crypto";
 
 // OCR ONLY - For user verification flow
 export const uploadCertificateForVerification = async (req, res) => {
@@ -100,7 +96,9 @@ export const uploadCertificateForVerification = async (req, res) => {
   }
 };
 
+// ============================================================
 // SINGLE CERTIFICATE UPLOAD - OCR + BLOCKCHAIN STORAGE
+// ============================================================
 export const uploadSingleCertificate = async (req, res) => {
   try {
     const { file } = req;
@@ -137,7 +135,7 @@ export const uploadSingleCertificate = async (req, res) => {
     const fields = ocrResult.fields;
     console.log("📊 Extracted fields:", fields);
 
-    // Step 2: Prepare certificate data 
+    // Step 2: Prepare certificate data
     const certificateData = {
       student_name: fields.student_name || "Unknown",
       father_name: fields.father_name || "",
@@ -274,7 +272,9 @@ export const uploadSingleCertificate = async (req, res) => {
   }
 };
 
+// ============================================================
 // BULK UPLOAD CERTIFICATES WITH MERKLE TREE
+// ============================================================
 export const bulkUploadCertificates = async (req, res) => {
   try {
     const { files } = req;
@@ -297,10 +297,9 @@ export const bulkUploadCertificates = async (req, res) => {
     const startTime = Date.now();
     const students = [];
     const errors = [];
-    const duplicateHashes = new Set();  // Tracking duplicates
+    const duplicateHashes = new Set();
 
     // PROCESSING ALL FILES SEQUENTIALLY (OCR + HASH)
-
     console.log(`\n${"=".repeat(60)}`);
     console.log(`📄 PHASE 1: OCR Processing (${files.length} files)`);
     console.log(`${"=".repeat(60)}`);
@@ -428,6 +427,7 @@ export const bulkUploadCertificates = async (req, res) => {
         errors,
       });
     }
+
     // STEP 2: BUILD MERKLE TREE
     console.log(`\n${"=".repeat(60)}`);
     console.log(
@@ -512,7 +512,6 @@ export const bulkUploadCertificates = async (req, res) => {
             ocrData: student.ocrData,
             confidence: student.confidence || 0,
             processingTime: student.processingTime || 0,
-            // Merkle Tree fields
             merkleRoot: merkleRoot,
             merkleProof: proof,
             leafIndex: i,
@@ -545,7 +544,7 @@ export const bulkUploadCertificates = async (req, res) => {
         }
       }
 
-      // STEP 5: FINAL SUMMARY TO PRINT ALL RESULTS
+      // STEP 5: FINAL SUMMARY
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(2);
 
       console.log(`\n${"=".repeat(60)}`);
@@ -595,7 +594,6 @@ export const bulkUploadCertificates = async (req, res) => {
     } catch (blockchainError) {
       console.error("❌ Blockchain storage failed:", blockchainError.message);
 
-      // Cleanup any files that weren't cleaned up
       files.forEach((file) => {
         if (fs.existsSync(file.path)) {
           try {
@@ -614,7 +612,6 @@ export const bulkUploadCertificates = async (req, res) => {
   } catch (error) {
     console.error("❌ Bulk upload error:", error);
 
-    // Cleanup all files on major error
     if (req.files) {
       req.files.forEach((file) => {
         if (fs.existsSync(file.path)) {
@@ -629,570 +626,6 @@ export const bulkUploadCertificates = async (req, res) => {
       success: false,
       message: error.message || "Failed to process bulk upload",
       error: error.message,
-    });
-  }
-};
-
-export const verifyCertificateByHash = async (req, res) => {
-  try {
-    const { hash } = req.params || req.body;
-
-    if (!hash) {
-      return res.status(400).json({
-        success: false,
-        message: "Certificate hash is required",
-      });
-    }
-
-    console.log(`🔍 Verifying certificate: ${hash}`);
-
-    await blockchainConfig.initialize();
-    const contract = blockchainConfig.getContract();
-
-    const isValid = await contract.verifyCertificate(hash);
-
-    let details = null;
-    try {
-      details = await contract.getCertificate(hash);
-    } catch (detailError) {
-      console.log(
-        "ℹ️ getCertificate method not available, using basic verification",
-      );
-    }
-
-    const certificate = await Certificate.findOne({ certificateHash: hash });
-
-    res.status(200).json({
-      success: true,
-      isValid,
-      details: details
-        ? {
-            registrationNumber: details[0],
-            studentName: details[1],
-            degree: details[2],
-            issueDate: new Date(Number(details[3]) * 1000),
-            isValid: details[4],
-            ipfsHash: details[5],
-          }
-        : null,
-      certificate: certificate || null,
-    });
-  } catch (error) {
-    console.error("Verification error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// GET BATCH STATUS HERE
-export const getBatchStatus = async (req, res) => {
-  try {
-    const { batchId } = req.params;
-    const batchJob = await BatchJob.findOne({ batchId });
-
-    if (!batchJob) {
-      return res.status(404).json({
-        success: false,
-        message: "Batch not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      batch: batchJob,
-    });
-  } catch (error) {
-    console.error("Batch status error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// GET DASHBOARD STATS
-export const getDashboardStats = async (req, res) => {
-  try {
-    const universityId = req.user?.universityId || req.user?.id;
-
-    const dbTotal = await Certificate.countDocuments({ universityId });
-    const verifiedCount = await Certificate.countDocuments({
-      universityId,
-      status: "verified",
-    });
-    const revokedCount = await Certificate.countDocuments({
-      universityId,
-      status: "revoked",
-    });
-    const recentTransactions = await Certificate.find({ universityId })
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .select(
-        "studentName registrationNumber certificateHash transactionHash status createdAt",
-      );
-
-    let totalCertificates = 0;
-    try {
-      await blockchainConfig.initialize();
-      const contract = blockchainConfig.getContract();
-
-      if (contract.getCertificateCount) {
-        totalCertificates = Number(await contract.getCertificateCount()) || 0;
-      } else {
-        totalCertificates = dbTotal;
-      }
-    } catch (blockchainError) {
-      console.warn("⚠️ Blockchain stats not available, using database stats");
-      totalCertificates = dbTotal;
-    }
-
-    res.json({
-      success: true,
-      totalWriteTransactions: totalCertificates || dbTotal || 0,
-      recordsStored: dbTotal || 0,
-      verifiedStudents: verifiedCount || 0,
-      revokedCount: revokedCount || 0,
-      recentTransactions: recentTransactions || [],
-    });
-  } catch (error) {
-    console.error("Stats error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// GET ALL CERTIFICATES
-export const getCertificates = async (req, res) => {
-  try {
-    const universityId = req.user?.universityId || req.user?.id;
-    const { page = 1, limit = 20, status } = req.query;
-
-    const filter = { universityId };
-    if (status) filter.status = status;
-
-    const certificates = await Certificate.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    const total = await Certificate.countDocuments(filter);
-
-    res.status(200).json({
-      success: true,
-      certificates,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    console.error("Get certificates error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// REVOKE CERTIFICATE
-export const revokeCertificate = async (req, res) => {
-  try {
-    const { hash } = req.params;
-    const { reason } = req.body;
-    const revokedBy = req.user?.id || req.user?.email || "unknown";
-
-    if (!hash) {
-      return res.status(400).json({
-        success: false,
-        message: "Certificate hash is required",
-      });
-    }
-
-    if (!reason || reason.trim().length < 3) {
-      return res.status(400).json({
-        success: false,
-        message: "Revocation reason is required (minimum 3 characters)",
-      });
-    }
-
-    console.log(`🚫 Revoking certificate: ${hash}`);
-    console.log(`📝 Reason: ${reason}`);
-    console.log(`👤 Revoked by: ${revokedBy}`);
-
-    const certificate = await Certificate.findOne({ certificateHash: hash });
-    if (!certificate) {
-      return res.status(404).json({
-        success: false,
-        message: "Certificate not found in database",
-      });
-    }
-
-    if (certificate.status === "revoked") {
-      return res.status(400).json({
-        success: false,
-        message: "Certificate already revoked",
-        data: {
-          revokedAt: certificate.revokedAt,
-          revocationReason: certificate.revocationReason,
-          revokedBy: certificate.revokedBy,
-        },
-      });
-    }
-
-    const isBatchCertificate = certificate.isBatchCertificate === true;
-    const blockchainHash = hash.startsWith("0x") ? hash : `0x${hash}`;
-
-    let transactionHash = null;
-    let blockNumber = null;
-    let revocationType = isBatchCertificate ? "batch" : "single";
-
-    if (isBatchCertificate) {
-      console.log(
-        `📦 Batch certificate detected. Merkle Root: ${certificate.merkleRoot}`,
-      );
-      console.log(`📦 Batch ID: ${certificate.batchId}`);
-      console.log(`📦 Leaf Index: ${certificate.leafIndex}`);
-
-      try {
-        await blockchainConfig.initialize();
-        const contract = blockchainConfig.getContract();
-
-        if (contract.logCertificateRevocation) {
-          console.log(`📝 Logging revocation audit on blockchain...`);
-          const tx = await contract.logCertificateRevocation(
-            blockchainHash,
-            reason,
-            certificate.batchId || certificate.merkleRoot || "unknown",
-          );
-          transactionHash = tx.hash;
-          const receipt = await tx.wait();
-          blockNumber = receipt.blockNumber;
-          console.log(`✅ Audit log recorded: ${transactionHash}`);
-        } else {
-          console.log(`ℹ️ Audit log function not available in contract`);
-        }
-      } catch (auditError) {
-        console.warn(`⚠️ Blockchain audit log failed: ${auditError.message}`);
-        console.warn(`⚠️ Continuing with database revocation...`);
-      }
-
-      const updatedCertificate = await Certificate.findOneAndUpdate(
-        { certificateHash: hash },
-        {
-          status: "revoked",
-          revocationReason: reason,
-          revokedAt: new Date(),
-          revokedBy: revokedBy,
-          revocationType: "batch",
-          transactionHash: transactionHash || certificate.transactionHash,
-          blockNumber: blockNumber || certificate.blockNumber,
-        },
-        { new: true, returnDocument: "after" },
-      );
-
-      return res.status(200).json({
-        success: true,
-        message: "Certificate revoked successfully (batch certificate)",
-        data: {
-          certificateHash: hash,
-          status: "revoked",
-          revocationReason: reason,
-          revokedAt: updatedCertificate.revokedAt,
-          revokedBy: revokedBy,
-          revocationType: "batch",
-          isBatchCertificate: true,
-          merkleRoot: certificate.merkleRoot,
-          batchId: certificate.batchId,
-          leafIndex: certificate.leafIndex,
-          transactionHash: transactionHash,
-          blockNumber: blockNumber,
-          certificate: updatedCertificate,
-        },
-      });
-    } else {
-      console.log(`📄 Single certificate detected`);
-
-      try {
-        await blockchainConfig.initialize();
-        const contract = blockchainConfig.getContract();
-
-        const tx = await contract.revokeCertificate(blockchainHash, reason);
-        transactionHash = tx.hash;
-        const receipt = await tx.wait();
-        blockNumber = receipt.blockNumber;
-        console.log(`✅ Blockchain revocation confirmed: ${transactionHash}`);
-
-        const updatedCertificate = await Certificate.findOneAndUpdate(
-          { certificateHash: hash },
-          {
-            status: "revoked",
-            revocationReason: reason,
-            revokedAt: new Date(),
-            revokedBy: revokedBy,
-            revocationType: "single",
-            transactionHash: transactionHash,
-            blockNumber: blockNumber,
-          },
-          { new: true },
-        );
-
-        return res.status(200).json({
-          success: true,
-          message: "Certificate revoked successfully (single certificate)",
-          data: {
-            certificateHash: hash,
-            status: "revoked",
-            revocationReason: reason,
-            revokedAt: updatedCertificate.revokedAt,
-            revokedBy: revokedBy,
-            revocationType: "single",
-            transactionHash: transactionHash,
-            blockNumber: blockNumber,
-            certificate: updatedCertificate,
-          },
-        });
-      } catch (blockchainError) {
-        console.error(
-          `❌ Blockchain revocation failed: ${blockchainError.message}`,
-        );
-        return res.status(500).json({
-          success: false,
-          message: `Blockchain revocation failed: ${blockchainError.message}`,
-          error: blockchainError.message,
-        });
-      }
-    }
-  } catch (error) {
-    console.error("Revocation error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// GET CERTIFICATE BY ID
-export const getCertificateById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const certificate = await Certificate.findById(id);
-
-    if (!certificate) {
-      return res.status(404).json({
-        success: false,
-        message: "Certificate not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      certificate,
-    });
-  } catch (error) {
-    console.error("Get certificate error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// SEARCH STUDENTS FOR REVOCATION
-export const searchStudentsForRevocation = async (req, res) => {
-  try {
-    const universityId = req.user?.universityId || req.user?.id;
-    const { query } = req.query;
-
-    if (!query || query.length < 2) {
-      return res.status(400).json({
-        success: false,
-        message: "Search query must be at least 2 characters",
-      });
-    }
-
-    const searchRegex = new RegExp(query, "i");
-
-    const certificates = await Certificate.find({
-      universityId,
-      status: "verified",
-      $or: [
-        { studentName: searchRegex },
-        { registrationNumber: searchRegex },
-        { rollNumber: searchRegex },
-        { studentId: searchRegex },
-      ],
-    })
-      .limit(20)
-      .select(
-        "studentName registrationNumber rollNumber certificateHash degree issueDate",
-      );
-
-    res.status(200).json({
-      success: true,
-      students: certificates,
-      count: certificates.length,
-    });
-  } catch (error) {
-    console.error("Search students error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// GET CERTIFICATE STATS
-export const getCertificateStats = async (req, res) => {
-  try {
-    const universityId = req.user?.universityId || req.user?.id;
-
-    const stats = await Certificate.aggregate([
-      { $match: { universityId } },
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 },
-        },
-      },
-    ]);
-
-    const total = await Certificate.countDocuments({ universityId });
-    const recentUploads = await Certificate.find({ universityId })
-      .sort({ createdAt: -1 })
-      .limit(5);
-
-    res.status(200).json({
-      success: true,
-      stats: {
-        total,
-        verified: stats.find((s) => s._id === "verified")?.count || 0,
-        revoked: stats.find((s) => s._id === "revoked")?.count || 0,
-        pending: stats.find((s) => s._id === "pending")?.count || 0,
-        failed: stats.find((s) => s._id === "failed")?.count || 0,
-      },
-      recentUploads,
-    });
-  } catch (error) {
-    console.error("Stats error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// SEARCH CERTIFICATES
-export const searchCertificates = async (req, res) => {
-  try {
-    const universityId = req.user?.universityId || req.user?.id;
-    const { query } = req.query;
-
-    if (!query) {
-      return res.status(400).json({
-        success: false,
-        message: "Search query is required",
-      });
-    }
-
-    const searchRegex = new RegExp(query, "i");
-    const certificates = await Certificate.find({
-      universityId,
-      $or: [
-        { studentName: searchRegex },
-        { registrationNumber: searchRegex },
-        { degree: searchRegex },
-        { studentId: searchRegex },
-        { certificateHash: searchRegex },
-      ],
-    }).limit(20);
-
-    res.status(200).json({
-      success: true,
-      certificates,
-      count: certificates.length,
-    });
-  } catch (error) {
-    console.error("Search error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-// BULK IMPORT FROM EXCEL
-export const bulkImportFromExcel = async (req, res) => {
-  try {
-    const result = await certificateBatchService.importExcel(
-      req.file,
-      req.user,
-    );
-
-    return res.status(200).json(result);
-  } catch (error) {
-    console.error("Bulk Import Error:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
-import { sendContactEmail } from "../../utils/emailService.js";
-
-export const submitContactForm = async (req, res) => {
-  try {
-    const { name, email, phone, message } = req.body;
-
-    // Validate required fields
-    if (!name || !email || !message) {
-      return res.status(400).json({
-        success: false,
-        message: "Name, email, and message are required",
-      });
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please provide a valid email address",
-      });
-    }
-
-    // Send email to admin
-    const result = await sendContactEmail({
-      name,
-      email,
-      phone: phone || "Not provided",
-      message,
-    });
-
-    if (!result.success) {
-      console.error("Email sending failed:", result.error);
-      return res.status(500).json({
-        success: false,
-        message: "Failed to send message. Please try again later.",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Your message has been sent successfully! We'll get back to you soon.",
-    });
-  } catch (error) {
-    console.error("Contact form error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Something went wrong. Please try again.",
     });
   }
 };

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { universityAPI } from "../services/universityAPI";
-import ApplicationCard from "../components/SystemAdminSections/ApplicationCard";
-import ApplicationDetails from "../components/SystemAdminSections/ApplicationDetails";
-import API from "../api/axios";
+import { universityAPI } from "../../services/universityAPI";
+import ApplicationCard from "../../components/SystemAdminSections/ApplicationCard";
+import ApplicationDetails from "../../components/SystemAdminSections/ApplicationDetails";
+import API from "../../api/axios";
 import {
   LayoutDashboard,
   Building2,

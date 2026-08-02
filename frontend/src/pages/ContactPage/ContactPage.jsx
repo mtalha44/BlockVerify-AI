@@ -13,12 +13,10 @@ import {
   Users,
   Clock,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import API from "../../api/axios";
-import BlockCertLogo from "../../components/Header/BlockCertLogo";
+import NavbarForLinks from "../../components/Header/NavLinksHeader";
 
 const ContactPage = () => {
-  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -109,25 +107,9 @@ const ContactPage = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50 pt-2 px-4 sm:px-6 lg:px-8">
-      {/* Header with Logo */}
-      <div className="max-w-6xl pb-2 border-b border-slate-200/80 mx-auto mb-8">
-        <div className="flex items-center justify-between">
-          <div
-            className="flex items-center gap-3 cursor-pointer"
-            onClick={() => navigate("/")}
-          >
-        <BlockCertLogo />   
-        
-          </div>
-          <button
-            onClick={() => navigate("/")}
-            className="text-sm text-slate-500 hover:text-[#002677] transition-colors"
-          >
-            ← Back to Home
-          </button>
-        </div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br pb-8 from-slate-50 via-white to-slate-50 pt-2 px-4 sm:px-6 lg:px-8">
+      {/* Header */}
+      <NavbarForLinks />
 
       {/* Main Content */}
       <div className="max-w-6xl mx-auto">

@@ -2,7 +2,9 @@
 const BlockCertLogo = () => {
   return (
     <div className=".logo max-[485px]:pl-4 ">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 cursor-pointer"
+         onClick={() => window.location.href = "/"}
+      >
         <div className="relative w-16 h-auto">
           <img src="../../images/logo.png" alt="" />
         </div>

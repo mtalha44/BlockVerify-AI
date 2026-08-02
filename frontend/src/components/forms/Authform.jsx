@@ -112,7 +112,7 @@ const AuthForm = ({ type }) => {
   };
 
   return (
-    <div className="max-w-md w-full">
+    <div className="max-w-md w-full overflow-hidden">
       <div className="text-center mb-8 ">
         <div className="flex items-center justify-center gap-3 mb-4">
           <div>

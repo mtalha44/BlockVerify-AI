@@ -14,10 +14,11 @@ import ForgotPassword from "./pages/ForgetPasswordPages/ForgetPassword";
 import UniversityEnrollment from "./components/forms/UniAuthForm";
 import UniversityActivation from "./pages/UserVerifyPages/UniActivation";
 import ResetPassword from "./pages/ForgetPasswordPages/ResetPassword";
-import UniversityDashboard from "./dashboard/UniDashboard";
-import UserDashboard from "./dashboard/UserDashboard";
+import UniversityDashboard from "./dashboard/UniversityDashboard";
+import UserDashboard from "./dashboard/userDashboard/UserDashboard";
 import ProtectedRoute from "./ProtectedRout/ProtectedRoute";
-import AdminDashboard from "./dashboard/AdminDashboard";
+import AdminDashboard from "./dashboard/AdminDashboard/AdminDashboard";
+import TeamPage from "./pages/TeamsPage/TeamPage";
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/institution-signin" element={<UniLoginPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/team" element={<TeamPage />} />
           <Route
             path="/UniversityEnrollment"
             element={<UniversityEnrollment />}

@@ -1,5 +1,5 @@
 import express from "express";
-import { submitContactForm } from "../src/controllers/certificateController.js";
+import { submitContactForm } from "../src/controllers/contactController.js";
 
 const router = express.Router();
 

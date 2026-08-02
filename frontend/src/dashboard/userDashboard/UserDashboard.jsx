@@ -1,8 +1,8 @@
 import { Building2, LogOutIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import BlockCertLogo from "../components/Header/BlockCertLogo";
-import CertificateUpload from "../pages/UploadCertificate/UploadPage";
-import API from "../api/axios";
+import BlockCertLogo from "../../components/Header/BlockCertLogo";
+import CertificateUpload from "../../pages/UploadCertificate/UploadPage";
+import API from "../../api/axios";
 import { useEffect, useState } from "react";
 
 const UserDashboard = () => {

@@ -45,7 +45,7 @@ class ExcelParser {
 
     // Validate headers - only required fields
     const firstRow = rows[0];
-    const requiredFields = ["Student Name", "Registration Number", "Degree"];
+    const requiredFields = ["Student Name", "Father Name", "Registration Number", "Roll Number", "Degree", "Session", "CGPA"];
     const missingFields = requiredFields.filter(
       (field) => !(field in firstRow),
     );
@@ -109,6 +109,7 @@ class ExcelParser {
         row["Student Name"] ||
         row["studentName"] ||
         row["Name"] ||
+        row["name"] ||
         ""
       ).trim(),
       fatherName: (
@@ -156,12 +157,28 @@ class ExcelParser {
     if (!student.studentName) {
       return { valid: false, message: "Student Name missing" };
     }
+    if (!student.fatherName){
+      return { valid: false, message: "Father Name is mising" };
+    }
     if (!student.registrationNumber) {
       return { valid: false, message: "Registration Number missing" };
     }
     if (!student.degree) {
       return { valid: false, message: "Degree missing" };
     }
+    if (!student.rollNumber) {
+      return { valid: false, message: "Roll Number missing" };
+    }
+    if (!student.session) {
+      return { valid: false, message: "Session missing" };
+    }
+    if (!student.cgpa) {
+      return { valid: false, message: "CGPA missing" };
+    }
+    if (isNaN(parseFloat(student.cgpa))) {
+      return { valid: false, message: "CGPA must be a number" };
+    }
+    
     return { valid: true };
   }
 
